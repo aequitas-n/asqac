@@ -1,0 +1,22 @@
+{
+  "prepared_at": "2026-11-03T03:50:23.647Z",
+  "status": "Vercel deployment completed; further hosting/integration changes paused by user",
+  "hosting_provider": "Vercel",
+  "directory": "D:\\college\\ASQAC\\artifacts\\frontend-deploy\\2026-11-03T03-50-23-496Z\\asqac-capsule-care-connect",
+  "supabase_project_ref": "chhpbpqoaikbcicxdnzj",
+  "backend_url_changed": false,
+  "source_and_device_credentials_uploaded": false,
+  "deployment_id": "dpl_DppkSKX3Y8o8Vm7JQtHeSVZ7H33C",
+  "deployment_url": "https://asqac-capsule-care-connect-4wopo1uce-aequitas01.vercel.app",
+  "production_url": "https://asqac-capsule-care-connect.vercel.app",
+  "ready_state": "READY",
+  "vercel_cli_account": "aequitas-n",
+  "deployment_scope": "aequitas01",
+  "integration_verified": false,
+  "remaining": [
+    "Verify deployment access/protection",
+    "Allow production frontend origin in Supabase telemetry CORS",
+    "Configure Supabase Auth frontend URLs"
+  ],
+  "updated_at": "2026-11-03T03:53:52.769Z"
+}

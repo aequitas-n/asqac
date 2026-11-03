@@ -1,0 +1,73 @@
+{
+  "project_ref": "chhpbpqoaikbcicxdnzj",
+  "checked_at": "2026-11-02T17:07:47.361Z",
+  "result": "pass",
+  "steps": [
+    {
+      "step": "technician authentication",
+      "status": "pass",
+      "detail": "Confirmed email/password login succeeded."
+    },
+    {
+      "step": "technician RLS profile",
+      "status": "pass",
+      "detail": "technician role is readable."
+    },
+    {
+      "step": "doctor authentication",
+      "status": "pass",
+      "detail": "Confirmed email/password login succeeded."
+    },
+    {
+      "step": "doctor RLS profile",
+      "status": "pass",
+      "detail": "doctor role is readable."
+    },
+    {
+      "step": "seed rows",
+      "status": "pass",
+      "detail": "4 capsules and 7 handling profiles visible through staff RLS."
+    },
+    {
+      "step": "Edge Function authentication",
+      "status": "pass",
+      "detail": "Deployed endpoint rejects requests without x-device-token."
+    },
+    {
+      "step": "registration and lifecycle",
+      "status": "pass",
+      "detail": "TR-261102-00010 reserved, prepared, and started atomically."
+    },
+    {
+      "step": "Realtime subscription",
+      "status": "pass",
+      "detail": "Authenticated subscription connected."
+    },
+    {
+      "step": "telemetry 5 °C",
+      "status": "pass",
+      "detail": "HTTP 201; reading 1 stored."
+    },
+    {
+      "step": "telemetry 12.5 °C",
+      "status": "pass",
+      "detail": "HTTP 201; reading 2 stored."
+    },
+    {
+      "step": "limits and live updates",
+      "status": "pass",
+      "detail": "Normal/stress readings, critical temperature alert, transport summary and capsule heartbeat were delivered through real cloud Realtime."
+    },
+    {
+      "step": "doctor receiving and verdict",
+      "status": "pass",
+      "detail": "Verification journey closed and CAP0001 released."
+    }
+  ],
+  "realtime_events": {
+    "readings": 2,
+    "alerts": 2,
+    "transports": 4,
+    "capsules": 4
+  }
+}

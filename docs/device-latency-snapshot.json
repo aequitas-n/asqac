@@ -1,0 +1,18 @@
+{
+  "checked_at": "2026-11-02T19:22:11.005Z",
+  "device_uid": "CAP0001-ESP32-001",
+  "physical_readings": 30,
+  "newest_observation": "2026-11-02T19:19:45+00:00",
+  "observation_to_ingestion_ms": {
+    "min": 2729,
+    "median": 3205,
+    "max": 4186
+  },
+  "receipt_interval_ms": {
+    "min": 8929,
+    "median": 9940,
+    "max": 11292
+  },
+  "caveat": "Timestamp differences include device clock error and up to 1 second of timestamp quantization; they are not browser or pure network latency.",
+  "read_only": true
+}

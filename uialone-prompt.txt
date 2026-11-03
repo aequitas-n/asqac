@@ -1,0 +1,45 @@
+Redesign the UI of the existing ASQAC app. Keep all functionality, data, backend and routes exactly as they are. Change only the visual design and layout.
+
+DESIGN REFERENCE (reference.webp): match its style and quality, not its content or green colours.
+- Whole app inside one big rounded app frame (radius 28–32px) floating on a soft grey background, generous padding.
+- Separate rounded white panels: sidebar, top bar (search with ⌘K hint, mail/bell icon buttons, user avatar with name + email), main content.
+- Page header: large title + muted subtitle on the left; solid primary pill button + outline pill button on the right.
+- KPI row of 4 cards: the first is a highlighted gradient brand card with white text, the rest white. Each has a circular arrow button top-right, a big number and a small trend badge line.
+- Bento grid below with mixed card sizes, soft shadows, thin borders, 20–24px radius, pill buttons and status chips, lots of white space.
+- Sidebar: logo, "MENU" and "GENERAL" labels, active item with a thick left accent bar + bold text, count badge, dark promo card at the bottom.
+
+PALETTE (medical cold-chain):
+- Canvas #EEF2F5, panels #FFFFFF / #F7F9FB, borders #E3E9ED
+- Primary deep teal #0E6E73 → #0A4F5C gradient (highlight card, primary buttons, dark cards)
+- Accent cyan #22B8C9, ice blue #8FD3F4
+- Hatched diagonal stripes #C9D6DD for pending / no data
+- Safe #1FA67A, warning #F2A33A, critical #E5484D, info #3B82F6
+- Text #0F1C24, muted #6B7B86
+- Fonts: Plus Jakarta Sans (headings), Inter (body), JetBrains Mono (readings, IDs, timers)
+
+WIDGET MAPPING (dashboard):
+- Highlight KPI = Capsules in transit; others = Open alerts, Avg transport time, Specimens verified today
+- Pill-shaped rounded bar chart = transports per day this week (hatched bars for excursion / no-data days)
+- Reminder-style card = "Next arrival" (specimen, destination lab, ETA, Open capsule button)
+- Icon list card = Active transports with specimen-type icons and ETA
+- People list with status pills = recent staff actions (Registered / In transit / Arrived / Verdict)
+- Half-donut gauge with hatched remainder + legend = range compliance %
+- Dark gradient timer card = live transport timer (big mono elapsed time vs max, mini temp + shock readouts, end control)
+- Sidebar promo card = Simulator mode start/stop
+
+CAPSULE DETAIL in the same card style: temperature gauge with safe band, pressure dial, lux meter with lid-open indicator, shock g meter with peak hold, tilt bubble level + 3D capsule (pitch/roll), sensor suite card (MPU6050, BH1750, HW-611/BMP280, ESP32-C3), trend charts, journey timeline, alert history.
+Login, Register, Alerts and Reports pages follow the same frame, panels and card language.
+
+ILLUSTRATIONS: generate a consistent custom set in soft 3D / clean vector medical style using the palette. Include the smart capsule (transparent cylinder with test tubes, teal base) for the login hero, specimen-type icons, empty-state art (no telemetry, all clear, no capsules) and staff avatars. Use lucide icons for the UI; no emoji, no stock photos.
+
+MOTION (subtle, medical-appropriate):
+- KPI count-up and live number tickers
+- Decode reveal on specimen and transport IDs
+- Staggered headline reveal
+- Calm ECG-style pulse on live lines and the LIVE dot
+- Bars grow, donut sweeps, lines draw on load
+- Status colour morph and alert slide-in with a soft glow
+- Gentle card hover lift with an arrow-button rotate
+No confetti, bouncing, glitch, cursor trails or parallax. Respect prefers-reduced-motion.
+
+QUALITY: skeleton loaders shaped like the cards, illustrated empty states, responsive (the sidebar becomes a drawer on mobile), accessible focus states and labels, status never shown by colour alone.

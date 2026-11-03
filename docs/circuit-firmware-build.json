@@ -1,0 +1,26 @@
+{
+  "checked_at": "2026-11-02T19:51:55.958Z",
+  "result": "pass",
+  "target": "esp32:esp32:esp32",
+  "board": "ESP32 Dev Module",
+  "cli": {
+    "Application": "arduino-cli",
+    "VersionString": "1.5.1",
+    "Commit": "01f3d4f2b",
+    "Status": "",
+    "Date": "2026-06-05T10:22:12Z"
+  },
+  "installed_cores": [
+    {
+      "id": "esp32:esp32",
+      "version": "3.3.12"
+    }
+  ],
+  "source_sha256": "22b33cb5de88f2254579024e51fcfc22f600d927b9d09afc44f1c0b731f1951a",
+  "self_contained": true,
+  "build_summary": [
+    "Sketch uses 1079608 bytes (82%) of program storage space. Maximum is 1310720 bytes.",
+    "Global variables use 120664 bytes (36%) of dynamic memory, leaving 207016 bytes for local variables. Maximum is 327680 bytes."
+  ],
+  "physical_hardware_tested": false
+}

@@ -1,0 +1,18 @@
+{
+  "checked_at": "2026-11-03T03:34:40.060Z",
+  "result": "pass",
+  "scope": "Native C++ telemetry logic and exact Supabase payload contract; no hardware or cloud writes",
+  "checks": [
+    "m/s² to g conversion, finite ranges, and angle normalization",
+    "impact/light peak hold, zero-valued measurements, and invalid-window handling",
+    "invalid identifiers, numeric values, RSSI, and buffer truncation rejected",
+    "bounded offline FIFO and safe acknowledgement after in-flight overflow",
+    "500 ms sampling, 1-second batch-start cadence and error backoff",
+    "13 queued samples drain in one batch; millisecond timestamps remain unique",
+    "actual firmware encoder output accepted by deployed-function Zod schema",
+    "code.txt matches the flashable Arduino sketch",
+    "single-file source has no HTML, local web server, or custom header dependencies",
+    "barometric formula, stable 16-sample startup reference and serialized reference metadata"
+  ],
+  "physical_hardware_tested": false
+}

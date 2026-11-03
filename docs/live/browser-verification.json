@@ -1,0 +1,14 @@
+{
+  "project_ref": "chhpbpqoaikbcicxdnzj",
+  "checked_at": "2026-11-02T17:16:00.566Z",
+  "result": "pass",
+  "checkpoints": [
+    "Technician UI login and live subscription",
+    "Registration, preparation, and start through real RPCs",
+    "Second simulator packet updated the gauge through Realtime without reload",
+    "Stress excursion and alert arrived live without reload",
+    "Doctor login, receive, and final verdict through real backend"
+  ],
+  "cleanup_transport": null,
+  "real_cloud": true
+}

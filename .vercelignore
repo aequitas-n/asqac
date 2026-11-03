@@ -1,0 +1,15 @@
+.env
+.env.*
+firmware/
+code.txt
+supabase/
+docs/
+tests/
+artifacts/
+node_modules/
+dist/
+prompt.txt
+ASTRA_PROMPT.md
+uialone-prompt.txt
+reference.webp
+*.log

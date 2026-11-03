@@ -1,0 +1,30 @@
+{
+  "checked_at": "2026-11-02T19:44:42.116Z",
+  "project_ref": "chhpbpqoaikbcicxdnzj",
+  "result": "pass",
+  "simulated": true,
+  "physical_hardware_tested": false,
+  "requests": [
+    {
+      "label": "drain 13-sample backlog",
+      "status": 201,
+      "duration_ms": 558,
+      "samples": 13
+    },
+    {
+      "label": "next 500-ms samples; no 2-second limiter",
+      "status": 201,
+      "duration_ms": 460,
+      "samples": 2
+    },
+    {
+      "label": "duplicate-safe retry",
+      "status": 201,
+      "duration_ms": 429,
+      "samples": 2
+    }
+  ],
+  "unique_readings": 15,
+  "realtime_events": 15,
+  "scope": "Real hosted endpoint, batching, duplicate-safe retry and authenticated Realtime; isolated CAP0004 simulated device only"
+}

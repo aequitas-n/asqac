@@ -1,0 +1,133 @@
+You are building, from scratch, a complete production-grade IIoT web system for a university biomedical engineering project. You decide the architecture, database design, folder structure and components yourself. Read this whole brief before starting.
+
+1. WHAT WE ARE BUILDING
+Project: ASQAC – Adaptive Specimen Quality Assurance Capsule Product name for the web app: ASQAC · Capsule Care Connect
+
+Problem: In hospitals, many lab errors happen before the specimen reaches the lab (the pre-analytical phase). Barcode/RFID only tell where a specimen is, not how it was handled. Excess temperature, drops/shocks, wrong orientation, light exposure, lid opening and long transport times can silently ruin a specimen, causing wrong diagnoses and repeat collections.
+
+Solution: A reusable smart capsule that carries specimen tubes between wards and labs. An ESP32-C3 inside reads sensors continuously and sends the data over hospital Wi-Fi to the cloud. A web app lets staff:
+
+Register a specimen and bind it to a capsule (QR based).
+Load a specimen-specific handling profile (limits depend on specimen type).
+Watch the transport live with sensor widgets.
+Get alerts the moment a limit is broken.
+At the lab, the receiving doctor ends the transport, reviews the full handling history and gives a final verdict: Accept / Review Required / Reject.
+Keep a full chain-of-custody audit trail for reports.
+The capsule mechanically also has a motor-driven test-tube rotation system and a planned MR-damper vibration isolation (future work) – show these only as an informational "Capsule hardware" / roadmap section, not as live data.
+
+2. REFERENCE (the old version we are replacing)
+Old site: https://hid-21-capsule-care-connect.capsulecare.workers.dev (login technician@asqac.test / technician)
+
+Keep its page structure, but it is a failed presentation: hardcoded fake values, empty charts, only one capsule while alerts reference capsules that don't exist, broken registration (submit stuck disabled), fake humidity and battery values, no sensor names, no QR, no doctor flow, no verdict, huge empty spaces, tiny text, emoji icons, generic admin template look. Ours must fix all of this and look dramatically better.
+
+Old pages to recreate and improve:
+
+Login – split hero, headline "Chain-of-custody you can hand to an auditor."
+Dashboard – KPIs (capsules in transit, open alerts, avg transport time, signal risk), temperature chart with safe band, open alerts, capsules in transit table, recent specimens with priority.
+Capsule monitoring – fleet with status filters (In transit, Prepared, Arrived, Alert, Charging, Idle, Maintenance) + capsule detail (assigned specimen, transport ID, active handling profile, live tiles, telemetry ingestion status, trend tabs Temperature / Pressure / Ambient Light / Motion, alert history).
+Register specimen – patient ref, requested test, specimen type (BLOOD, URINE, PLASMA, TISSUE, SWAB, VACCINE), handling profile, priority (routine, urgent, critical), origin ward, destination lab, profile summary card, capsule assignment, clinical notice, scientific source links (WHO specimen transport guidelines, CLSI PRE04, Oxford University Hospitals transport guidance).
+Alerts – severity (critical, warning, info), type, acknowledge, "unacknowledged only" toggle, retained for audit.
+Reports – KPIs, deliveries vs excursions chart, chain-of-custody table, CSV export.
+3. REAL HARDWARE (only these sensors – never invent others)
+Part	Interface	Data
+ESP32-C3 Super Mini	Wi-Fi, I²C SDA = GPIO9, SCL = GPIO8, 4.7 kΩ pull-ups	controller
+MPU6050 (6-axis IMU)	I²C	accel x/y/z (g), gyro, pitch & roll (°), shock/impact peak (g)
+BH1750	I²C	ambient light (lux) – spike means lid opened / light exposure
+HW-611 (BMP280)	I²C	temperature (°C), pressure (hPa)
+No humidity sensor and no battery sensing – never show them as live data.
+Show the sensor names in the UI (capsule detail "Sensor suite" card with each sensor, what it measures, live/offline state).
+Sampling every ~5–10 seconds.
+4. TECH STACK
+Frontend
+
+React 18 + Vite + TypeScript (strict)
+Tailwind CSS with design tokens as CSS variables
+framer-motion for animation
+Recharts (or visx) for charts
+react-three-fiber + drei for a 3D capsule orientation widget
+react-router-dom
+html5-qrcode (scan capsule QR), qrcode.react (print QR labels)
+lucide-react icons (no emoji icons)
+date-fns, sonner (toasts), zod + react-hook-form
+Backend – Supabase FREE tier only (no separate server)
+
+Supabase Auth (email + password) with roles
+Supabase Postgres with Row Level Security
+Supabase Realtime for live updates
+Supabase Edge Function(s) (Deno/TypeScript) as the device ingestion API
+Optional pg_cron for "lost connection" checks and data pruning if available on free tier
+Hosting: frontend on Vercel / Netlify / Cloudflare Pages (free).
+
+Supabase connection: I will provide the project URL and anon key later. Use environment variables only (VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY, and the Edge Function URL). Never hardcode keys. Provide a .env.example. Put all SQL in supabase/migrations/ and functions in supabase/functions/ so I can run them with the Supabase CLI or paste into the SQL editor.
+
+5. HOW DATA FLOWS (design this properly)
+ESP32 reads the 3 sensors → builds JSON (device id, timestamp, temp, pressure, lux, accel x/y/z, pitch, roll, shock peak, wifi rssi).
+ESP32 sends HTTPS POST to a Supabase Edge Function with a per-device secret token in a header. The ESP32 never holds Supabase admin keys.
+Edge Function: verifies the device token (store only a hash), validates the payload, finds the capsule's active transport and its handling profile, stores the reading, compares against limits, creates alerts for breaches, updates capsule "last seen".
+Website subscribes to Realtime → widgets, charts and alerts update live without refresh.
+Lost connection: if an in-transit capsule hasn't reported for > 2 min, raise a connectivity alert.
+Stay inside free-tier limits (reasonable sampling, prune or downsample old readings).
+6. USERS, ROLES & WORKFLOW
+Technician (demo login technician@asqac.test): registers specimens, scans/assigns a free capsule, prepares and starts the transport, acknowledges alerts.
+Doctor / receiver (demo login doctor@asqac.test): sees incoming transports, ends the transport on arrival, reviews the handling summary and sets the verdict (Accept / Review Required / Reject, notes required for the last two).
+Admin (optional): manage capsules, devices (generate device tokens), handling profiles, users.
+Role-based UI: hide/disable actions the user can't perform; enforce with RLS too.
+
+Transport lifecycle: Registered → Prepared → In transit → Arrived → Closed with verdict. Show this as a journey timeline everywhere relevant.
+
+Handling profiles (seed realistic presets per specimen type): temperature min/max, max transport time, max shock g, max tilt °, max light lux, notes, lab confirmation required, source references. Example: Blood – refrigerated 2–8 °C; Urine – routine refrigerated; Tissue – frozen section / ambient; Vaccine – 2–8 °C strict light-sensitive, etc. Profile selection must be filtered by specimen type.
+
+Alerts: temperature out of band, shock above limit, tilt above limit, light exposure (lid open), pressure anomaly, delay (over max transport time), connectivity lost. Severity critical/warning/info. Acknowledge → audit log entry.
+
+Verdict logic suggestion: automatic recommendation from excursions (none → Accept, minor/short → Review Required, critical → Reject), final decision by the doctor.
+
+Audit trail: every registration, transport start/end, alert, acknowledgement and verdict logged with actor and time; shown as chain of custody.
+
+7. PAGES
+Login – split hero: left cinematic brand panel with animated headline and a subtle live telemetry line motif; right clean auth card. Demo hint shows the emails (not the passwords).
+Dashboard – custom bento: KPI strip with live tickers, large temperature chart with the profile safe band shaded, live capsule map/list, open alert feed, recent specimens, quick "Register specimen" action.
+Capsule fleet – cards with status, specimen, last seen, mini sparkline; filter chips; click → detail.
+Capsule live detail (the hero screen) –
+header: capsule code, status, last-seen pulse, assigned specimen, transport ID, active profile
+live widgets: temperature gauge against the safe band, pressure dial, lux meter with lid-open indicator, shock g meter with peak hold, tilt bubble level and a 3D capsule rotating with live pitch/roll
+sensor suite card (MPU6050, BH1750, HW-611/BMP280, ESP32-C3) with live/offline state
+trend charts tabs: Temperature, Pressure, Light, Motion
+transport journey timeline, alert history, ingestion health (last packet age, rssi)
+role actions: Start transport / End transport + verdict
+Register specimen – multi-step or sectioned form, live profile summary card, capsule assignment with QR scan, generate printable QR label; clear validation messages.
+Alerts – filters by severity/type, unacknowledged toggle, acknowledge, grouped by capsule/transport.
+Reports – deliveries, excursion rate, avg transport time, verdict mix chart, deliveries vs excursions over time, chain-of-custody table with search and CSV export, printable transport report per specimen.
+Capsule hardware / About – the sensors, the tube-rotation mechanism and MR-damper roadmap, system architecture diagram.
+8. UI / UX – THE MAIN OBJECTIVE (go all out)
+The website is what gets judged. It must look premium, interactive and purpose-built – NOT a default admin template.
+
+Layout: fully custom bento / asymmetric grids, varied card sizes, strong hierarchy, no big empty voids, no generic sidebar+table clone. Slim custom nav rail + top status strip (LIVE indicator, clock, role badge, simulator toggle).
+Look: clinical precision meets mission-control. Deep navy/ink background, glassy hairline-bordered cards, medical teal/cyan primary, ice blue secondary, amber for warnings, red for critical, green for accept. Modern display font (e.g. Sora / Instrument Sans), clean body font (IBM Plex Sans / Inter), mono font for IDs and readings.
+Widgets: real custom gauges, dials, meters, sparklines, timelines, 3D capsule – not just numbers in boxes.
+Text and motion animations that fit the project:
+live number tickers when readings change
+short decode/scramble reveal on specimen and transport IDs
+staggered word reveal on the login headline and page titles
+calm ECG-style pulse on the live telemetry line
+smooth colour/label morph when a status changes
+chart lines draw on first load, cards fade/slide in once
+alert arriving: gentle slide-in with severity glow
+Forbidden: confetti, bouncing logos, glitch spam, cursor trails, spinning orbs, random parallax – nothing gimmicky.
+Respect prefers-reduced-motion.
+Skeleton loaders shaped like the cards, honest empty states ("Waiting for capsule telemetry – start the simulator or power the capsule"), toasts, responsive (desktop first, tablet friendly), accessible (focus states, aria labels, status never shown by colour alone), print styles for reports and QR labels.
+9. SIMULATOR MODE (required for demo)
+A toggle in the top bar that sends realistic fake readings through the same Edge Function every few seconds for a selected capsule, with a "Stress" option that occasionally breaks limits (temperature spike, drop shock, tilt, lid open) to show alerts live. Show a clear "SIMULATED" badge. Also provide a small Node script that does the same from the terminal.
+
+10. ESP32 FIRMWARE
+Generate Arduino code for the ESP32-C3 that reads MPU6050, BH1750 and HW-611/BMP280 (auto-detect address 0x76/0x77), computes pitch/roll and the shock peak between sends, POSTs JSON to the Edge Function over HTTPS with the device token, reconnects Wi-Fi, buffers readings when offline, and keeps Wi-Fi/token/URL in a separate secrets.h. List the required libraries.
+
+11. SEED / DEMO DATA
+Seed handling profiles, 3–4 capsules (CAP0001…), demo technician and doctor accounts (document how to create them), and a few historical transports so Reports are not empty. Live screens must use real rows only – no hardcoded numbers in components.
+
+12. DELIVERABLES
+Full frontend source with a clean structure (pages, components/widgets, components/layout, hooks, lib, types)
+Supabase migrations (schema, RLS, realtime, seed) and Edge Function code
+ESP32 firmware + simulator script
+.env.example and a README with step-by-step setup: create Supabase project, run migrations, deploy the function, set secrets, create users, register a device token, run locally, deploy the frontend, flash the ESP32
+Everything must work on Supabase free tier.
+Build it beautiful, interactive and clinically serious.

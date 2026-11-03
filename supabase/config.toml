@@ -1,0 +1,12 @@
+project_id = "asqac-capsule-care-connect"
+
+[auth]
+enable_signup = false
+site_url = "https://asqac-capsule-care-connect.vercel.app"
+additional_redirect_urls = ["http://127.0.0.1:5173", "http://localhost:5173", "https://asqac-capsule-care-connect.vercel.app/**"]
+
+[functions.telemetry]
+verify_jwt = false
+
+[functions.maintenance]
+verify_jwt = false
