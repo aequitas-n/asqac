@@ -2,6 +2,8 @@
 
 The root `code.txt` and identical `firmware/asqac-esp32/asqac-esp32.ino` now contain the latency fix. Re-upload this version to the physical ESP32; changing the workspace file alone cannot update a running board.
 
+**Later rate-limit correction:** migration 008 reduces both single-packet and batch admission to 250 ms. The simulator previously used the legacy two-second path while the physical board used batches under the same UID. Both simulators now use the batch protocol and retry 429 responses with the same payload/timestamp instead of stopping immediately. The Edge Function supplies `retry_after_ms` and a conservative HTTP `Retry-After` header. Bounded retries include jitter and cancellation. Existing firmware sampling/pacing remains unchanged and compatible; no reflash is required for this server/simulator correction. The 750 ms and two-second descriptions below document earlier versions.
+
 The final frontend pass preserves newer Realtime rows when delayed reconciliation queries complete, bounds histories without repeated full-fleet scans, and memoizes capsule histories, trends and orientation rendering. Live chart draw animations are disabled so new points do not repeatedly restart a 650 ms animation. The 3D model starts at the measured pose and damps subsequent shortest-angle changes. Number tickers reset across offline gaps, meters without limits say “Measured,” and raw gyro X/Y/Z is visible. The full local suite now has 38 passing tests. No additional browser verification or physical post-flash measurement was performed. This is ready for a near-live demonstration after flashing, with cloud request time still part of the delivery delay.
 
 ## Final correction: FIFO backlog and application 429

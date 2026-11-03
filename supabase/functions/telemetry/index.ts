@@ -71,11 +71,11 @@ Deno.serve(async (request: Request) => {
         return json(
           request,
           {
-            error: batch
-              ? 'Device rate limit: retry after 750 ms'
-              : 'Device rate limit: retry after 2 seconds',
+            error: 'Device busy: retry after 250 ms',
+            retry_after_ms: 250,
           },
           429,
+          { 'Retry-After': '1' },
         );
       if (error.message.includes('already reviewed'))
         return json(request, { error: 'Transport already reviewed; late reading rejected' }, 409);

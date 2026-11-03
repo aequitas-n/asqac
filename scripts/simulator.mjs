@@ -1,4 +1,5 @@
 import { setTimeout as pause } from 'node:timers/promises';
+import { uploadTelemetryBatch } from '../src/lib/telemetryUpload.ts';
 const endpoint = process.env.TELEMETRY_URL || process.env.VITE_TELEMETRY_URL;
 const token = process.env.DEVICE_TOKEN;
 const uid = process.env.DEVICE_UID;
@@ -17,8 +18,10 @@ const stress = args.includes('--stress');
 if (!Number.isFinite(interval) || interval < 5 || max <= min || count <= 0)
   throw new Error('Interval must be >=5 s, count positive, and temperature min < max.');
 let stopped = false;
+const controller = new AbortController();
 process.on('SIGINT', () => {
   stopped = true;
+  controller.abort();
 });
 console.log(
   `SIMULATED telemetry · ${uid} · ${interval}s interval · ${stress ? 'stress' : 'normal'} scenario. Ctrl+C to stop.`,
@@ -52,23 +55,24 @@ for (let n = 0; n < count && !stopped; n++) {
     simulated: true,
   };
   try {
-    const response = await fetch(endpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-device-token': token },
-      body: JSON.stringify(payload),
-      signal: AbortSignal.timeout(12000),
+    const result = await uploadTelemetryBatch({
+      endpoint,
+      token,
+      readings: [payload],
+      signal: controller.signal,
+      onRetry: (ms) =>
+        console.log(`Device busy; retrying the same packet in ${(ms / 1000).toFixed(1)} s`),
     });
-    const result = await response.json();
-    if (!response.ok) {
-      console.error(`HTTP ${response.status}: ${result.error}`);
-      if ([400, 401, 403, 409].includes(response.status)) process.exitCode = 1;
-      if (process.exitCode) break;
-    } else
-      console.log(
-        `${payload.recorded_at} · ${payload.temp_c.toFixed(2)} °C · shock ${payload.shock_g.toFixed(2)} g · reading ${result.reading_id} · ${result.transport_id ? 'assigned transport' : 'unassigned'}${breach ? ' · STRESS' : ''}`,
-      );
+    const row = result.results[0];
+    console.log(
+      `${payload.recorded_at} · ${payload.temp_c.toFixed(2)} °C · shock ${payload.shock_g.toFixed(2)} g · reading ${row.reading_id} · ${row.transport_id ? 'assigned transport' : 'unassigned'}${breach ? ' · STRESS' : ''}`,
+    );
   } catch (e) {
-    console.error(`Delivery failed: ${e.message}`);
+    if (!stopped) console.error(`Delivery failed: ${e.message}`);
+    if ([400, 401, 403, 409].includes(e.status)) {
+      process.exitCode = 1;
+      break;
+    }
   }
   if (n + 1 < count && !stopped) await pause(interval * 1000);
 }

@@ -80,6 +80,7 @@ before(async () => {
     '202611020004_realtime.sql',
     '202611030006_batch_ingestion.sql',
     '202611030007_barometric_height.sql',
+    '202611030008_device_rate_limit.sql',
   ])
     await db.exec(
       await readFile(new URL(`../supabase/migrations/${file}`, import.meta.url), 'utf8'),
@@ -194,6 +195,9 @@ describe('PostgreSQL schema, RLS and audited workflows', { concurrency: false },
       JSON.stringify(body),
     ]);
     assert.equal((duplicate.rows[0].result as { duplicate: boolean }).duplicate, true);
+    await db.exec(
+      "update public.devices set last_ingested_at=clock_timestamp()+interval '1 second'",
+    );
     await assert.rejects(packet({}, false), /rate limit/);
     const t = (
       await db.query('select telemetry_summary from public.transports where id=$1', [transportId])

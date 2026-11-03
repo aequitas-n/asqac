@@ -1,0 +1,21 @@
+{
+  "checked_at": "2026-11-03T05:07:59.366Z",
+  "result": "pass",
+  "removed": {
+    "specimens": 12,
+    "transports": 12,
+    "readings": 55,
+    "alerts": 7,
+    "audit_log": 68,
+    "devices": 4
+  },
+  "protected_user_specimens": 2,
+  "remaining_transports": {
+    "registered": 1,
+    "closed": 1
+  },
+  "physical_readings_preserved": true,
+  "cap0001_device_credential_unchanged": true,
+  "private_backup": "artifacts/test-data-cleanup-backup.json",
+  "verification_created_new_records": false
+}

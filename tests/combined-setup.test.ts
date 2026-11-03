@@ -26,7 +26,7 @@ after(async () => {
 });
 describe('Combined Supabase SQL editor setup', () => {
   test('runs all migrations and preserves an already-created Auth account', async () => {
-    assert.equal((await db.query('select * from public.asqac_schema_migrations')).rows.length, 7);
+    assert.equal((await db.query('select * from public.asqac_schema_migrations')).rows.length, 9);
     assert.equal(
       (await db.query('select id from auth.users where email=$1', ['doctor@asqac.test'])).rows[0]
         .id,
@@ -36,7 +36,7 @@ describe('Combined Supabase SQL editor setup', () => {
     assert.equal((await db.query('select * from public.handling_profiles')).rows.length, 7);
     assert.equal(
       (await db.query("select * from public.transports where state='closed'")).rows.length,
-      9,
+      0,
     );
   });
   test('seeds confirmed identities and exact demo passwords using bcrypt', async () => {
@@ -106,8 +106,8 @@ describe('Combined Supabase SQL editor setup', () => {
   test('can be pasted again without duplicating data or audit history', async () => {
     await db.exec(setup);
     assert.equal((await db.query('select * from auth.users')).rows.length, 2);
-    assert.equal((await db.query('select * from public.transports')).rows.length, 9);
-    assert.equal((await db.query('select * from public.audit_log')).rows.length, 45);
+    assert.equal((await db.query('select * from public.transports')).rows.length, 0);
+    assert.equal((await db.query('select * from public.audit_log')).rows.length, 0);
     assert.equal((await db.query('select * from public.devices')).rows.length, 1);
   });
   test('batch drains queued readings with unique subsecond times, auth and request limits', async () => {
@@ -143,6 +143,9 @@ describe('Combined Supabase SQL editor setup', () => {
     const result = await invoke(device.token_hash, rows);
     assert.equal((result.rows[0] as { result: { results: unknown[] } }).result.results.length, 13);
     assert.equal((await db.query('select * from public.readings')).rows.length, 13);
+    await db.exec(
+      "update public.devices set last_ingested_at=clock_timestamp()+interval '1 second'",
+    );
     await assert.rejects(invoke(device.token_hash, [packet(14)]), /rate limit/);
     await db.exec("update public.devices set last_ingested_at=now()-interval '3 seconds'");
     await invoke(device.token_hash, rows); // safe retry; no duplicate rows
@@ -210,6 +213,52 @@ describe('Combined Supabase SQL editor setup', () => {
       (await db.query('select height_change_m from public.readings order by recorded_at limit 1'))
         .rows[0].height_change_m,
       null,
+    );
+  });
+  test('both single and batch uploads use a 250 ms admission window', async () => {
+    const device = (await db.query('select device_uid,token_hash from public.devices limit 1'))
+      .rows[0];
+    const packet = (offset: number) => ({
+      device_uid: device.device_uid,
+      recorded_at: new Date(Date.now() - 5000 + offset).toISOString(),
+      temp_c: 5,
+      pressure_hpa: 1013,
+      lux: 3,
+      ax: 0,
+      ay: 0,
+      az: 1,
+      pitch_deg: 0,
+      roll_deg: 0,
+      shock_g: 1,
+      rssi: -55,
+      simulated: true,
+    });
+    await db.exec(
+      "update public.devices set last_ingested_at=clock_timestamp()-interval '350 milliseconds'",
+    );
+    await db.query('select public.ingest_reading($1,$2,$3::jsonb)', [
+      device.device_uid,
+      device.token_hash,
+      JSON.stringify(packet(0)),
+    ]);
+    await db.exec(
+      "update public.devices set last_ingested_at=clock_timestamp()-interval '350 milliseconds'",
+    );
+    await db.query('select public.ingest_reading_batch($1,$2,$3::jsonb)', [
+      device.device_uid,
+      device.token_hash,
+      JSON.stringify([packet(500)]),
+    ]);
+    await db.exec(
+      "update public.devices set last_ingested_at=clock_timestamp()+interval '1 second'",
+    );
+    await assert.rejects(
+      db.query('select public.ingest_reading_batch($1,$2,$3::jsonb)', [
+        device.device_uid,
+        device.token_hash,
+        JSON.stringify([packet(1000)]),
+      ]),
+      /rate limit/,
     );
   });
 });

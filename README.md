@@ -18,7 +18,9 @@ The interface follows `uialone-prompt.txt` and `reference.webp`: a light rounded
 
 This workspace is configured for **`chhpbpqoaikbcicxdnzj`** at `https://chhpbpqoaikbcicxdnzj.supabase.co`. The ignored `.env` contains the exact public keys and URLs you supplied. Administrative keys have no `VITE_` prefix and are only read by trusted local provisioning scripts. The browser client prefers `VITE_SUPABASE_PUBLISHABLE_KEY` and falls back to `VITE_SUPABASE_ANON_KEY`.
 
-**Current remote status (3 November 2026): connected and verified.** All seven migrations are installed, staff RLS policies and Realtime are active, and the `telemetry` function is deployed with JWT verification disabled and device-token authentication enabled. It accepts both legacy single readings and bounded batches, including barometric reference metadata. Both confirmed demo accounts can sign in. CAP0001–CAP0004, seven handling profiles, the demo device and nine historical transports are seeded. Public signup is disabled. Scheduled connection checks and retention are active through `pg_cron`.
+**Current remote status (3 November 2026): connected and verified.** All nine migrations are installed, staff RLS policies and Realtime are active, and the `telemetry` function is deployed with JWT verification disabled and device-token authentication enabled. Legacy and batch uploads now share a 250 ms admission window. The browser and terminal simulators use batches and retry a throttled packet automatically with its original timestamp. Both confirmed demo accounts, CAP0001–CAP0004, seven handling profiles and the real CAP0001 device remain. At the user's request, seeded synthetic history and live verification data have been removed; the user's two specimens/transports were preserved. Public signup is disabled. Scheduled connection checks and retention remain active.
+
+The [verified cleanup](docs/test-data-cleanup.json) removed 12 synthetic/verification specimens and transports, 55 simulated readings, seven test alerts, 68 test audit events and four temporary verification devices. It preserved physical readings and the active ESP32 credential. A private backup is stored under ignored `artifacts/`. The combined setup applies the same scoped cleanup after the original historical seed, so a fresh installation ends without fabricated reports. Normal builds and deployments do not run the optional live verification scripts.
 
 Estimated barometric altitude and relative height change are available in capsule detail, trend charts, overview sensor readings and printable transport reports. Both derive from the existing BMP280 pressure sensor. The updated single-file [code.txt](code.txt) establishes a stable startup pressure reference; keep the capsule still while it settles after boot. Old readings show estimated altitude, but no fabricated height change. Weather and capsule sealing affect these estimates. See [barometric metrics and deployed verification](docs/BAROMETRIC_METRICS.md).
 
@@ -32,7 +34,7 @@ Both the backend integration check and the real browser walkthrough passed again
 
 ### One SQL Editor script
 
-Setup is already applied to your project. For a reproducible SQL Editor installation, open the [SQL Editor for this project](https://supabase.com/dashboard/project/chhpbpqoaikbcicxdnzj/sql/new), paste the entire contents of **[`supabase/ASQAC_SETUP.sql`](supabase/ASQAC_SETUP.sql)**, and run it as the project administrator. It creates all application tables, checks, indexes, explicit RLS policies, audited workflow functions, the Realtime publication, seven handling profiles, CAP0001–CAP0004, two confirmed demo accounts, a hashed demo device credential, and nine closed historical transports. A private migration ledger makes repeat runs safe; it does not delete records or change unrelated table privileges. Regenerate the combined file after adding migrations with `npm run sql:bundle`.
+Setup is already applied to your project. For a reproducible SQL Editor installation, open the [SQL Editor for this project](https://supabase.com/dashboard/project/chhpbpqoaikbcicxdnzj/sql/new), paste the entire contents of **[`supabase/ASQAC_SETUP.sql`](supabase/ASQAC_SETUP.sql)**, and run it as the project administrator. It creates all application tables, checks, indexes, explicit RLS policies, audited workflow functions, the Realtime publication, seven handling profiles, four capsules, two confirmed demo accounts and the hashed device credential. Migration 009 removes only precisely marked ASQAC synthetic/demo records after the original seed; user records and physical observations are preserved. A private migration ledger skips completed migrations on repeat runs. Regenerate the combined file with `npm run sql:bundle` after adding migrations.
 
 The application uses text columns with explicit `CHECK` constraints for its finite role/status/specimen values; no PostgreSQL enum types are required by its schema. Authenticated technicians, doctors and admins have explicit read policies. Writes use role-checked audited RPCs. Direct device-table access is denied to application users so token hashes cannot leak; the simulator reads safe device identifiers through its dedicated RPC.
 
@@ -65,7 +67,7 @@ Use `--use-api` when Docker is unavailable. `verify_jwt = false` is also declare
 For a fresh database, you can apply migrations through CLI v3 with `npx supabase db push --remote=YOUR_PROJECT_REF --yes` instead of the SQL Editor. Choose one initial migration path. After a SQL Editor installation, record the applied versions in the CLI ledger before any future `db push`:
 
 ```sh
-npx supabase migration repair 202611020001 202611020002 202611020003 202611020004 202611020005 202611030006 202611030007 --status applied --remote=chhpbpqoaikbcicxdnzj --yes
+npx supabase migration repair 202611020001 202611020002 202611020003 202611020004 202611020005 202611030006 202611030007 202611030008 202611030009 --status applied --remote=chhpbpqoaikbcicxdnzj --yes
 ```
 
 That ledger repair is already complete for your project; do not recreate its schema. CLI v3 database commands default to a local target, so specify `--remote` for cloud database operations.
@@ -143,8 +145,10 @@ Alternatively, paste and execute the **entire contents** of these files in the S
 5. `supabase/migrations/202611020005_demo_connection.sql`
 6. `supabase/migrations/202611030006_batch_ingestion.sql`
 7. `supabase/migrations/202611030007_barometric_height.sql`
+8. `supabase/migrations/202611030008_device_rate_limit.sql`
+9. `supabase/migrations/202611030009_remove_synthetic_history.sql`
 
-Apply each migration once. The seed creates seven handling presets, CAP0001–CAP0004 and nine clearly identified, **closed synthetic historical transports**. Migration 005 adds the requested confirmed demo accounts and hashed CAP0001 device token. No fake live transport is seeded. Reports use actual database rows.
+Apply each migration once. The seed creates seven handling presets and four capsules. Migration 005 adds the confirmed demo accounts and hashed CAP0001 credential. The nine historical examples originally created by migration 003 are removed by migration 009, along with precisely marked verification records. User-entered work and physical readings are preserved. Reports use actual remaining database rows.
 
 The Realtime migration creates the `supabase_realtime` publication if needed and adds readings, capsules, transports, specimens, alerts and audit events. Check Dashboard → Database → Publications if your project has disabled Realtime.
 
@@ -209,7 +213,7 @@ The browser simulator accepts the secret in a password field and keeps it in mem
 7. Sign out, sign in as the doctor, open the capsule and use **Receive & end transport** beside its title. Review the handling record, then use **Review & record verdict** in the same header. Review Required and Reject require notes. Closing releases the capsule.
 8. Open Reports, filter/search, export the custody CSV, or print a transport report. QR labels and reports have dedicated print styles.
 
-The receiving doctor always chooses the final disposition. The suggestion is conservative: any critical episode → Reject; warnings, missing coverage, gaps or simulated telemetry → Review Required; otherwise → Accept. Acknowledging an excursion never erases it from that assessment.
+The receiving doctor always chooses the final disposition. The suggestion is conservative: any critical episode → Reject; warnings, missing coverage, gaps or simulated telemetry → Review Required; otherwise → Accept. Acknowledging an excursion never erases it from that assessment. Both simulators send bounded batches. A 429 now shows a brief retry status instead of stopping immediately; server timing hints, jitter, a six-attempt cap and cancellation prevent a hot retry loop. Normal ten-second simulator pacing and the physical firmware's existing cadence are unchanged. Use a dedicated simulator capsule/device to avoid mixing fake readings with an active ESP32 stream under the same device ID.
 
 New live alerts also appear as on-screen notifications with the capsule code. Refresh snapshots cannot drop a newer alert or undo its acknowledgement, recovery or critical escalation. The sidebar uses a compact simulator control and height-aware spacing to keep navigation in one view without an inner scrollbar. The requested research-prototype footer text has been removed. The isolated [hosted workflow check](docs/alert-workflow-verification.json) verified Registered → Prepared → In transit, critical temperature/light alerts through Realtime, acknowledgement and doctor closure on simulated CAP0004. CAP0001 was not modified. Repeat with `node --env-file=.env scripts/verify-alert-workflow.mjs` only while CAP0004 is idle; the labelled verification journey and alerts remain in audit history.
 

@@ -5,6 +5,7 @@ import { Modal } from './ui';
 import { useData } from '../hooks/useData';
 import { rpc, telemetryUrl } from '../lib/supabase';
 import type { DeviceInfo } from '../types';
+import { uploadTelemetryBatch } from '../lib/telemetryUpload';
 export function Simulator({
   openRequest = 0,
   onRunningChange,
@@ -21,6 +22,7 @@ export function Simulator({
   const [running, setRunning] = useState(false);
   const [count, setCount] = useState(0);
   const [error, setError] = useState('');
+  const [retryMessage, setRetryMessage] = useState('');
   const stressRef = useRef(stress);
   stressRef.current = stress;
   const controller = useRef<AbortController>();
@@ -61,41 +63,46 @@ export function Simulator({
       const event = stressRef.current && n % 6 === 4;
       const kind = Math.floor(n / 6) % 4;
       controller.current = new AbortController();
-      const timeout = setTimeout(() => controller.current?.abort(), 12000);
       try {
-        const response = await fetch(telemetryUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'x-device-token': token },
+        await uploadTelemetryBatch({
+          endpoint: telemetryUrl,
+          token,
           signal: controller.current.signal,
-          body: JSON.stringify({
-            device_uid: device,
-            recorded_at: new Date().toISOString(),
-            temp_c:
-              event && kind === 0 ? (profile?.temp_max_c ?? 8) + 4 : middle + Math.sin(n / 5) * 0.5,
-            pressure_hpa: 1012 + Math.sin(n / 7) * 2,
-            sea_level_pressure_hpa: 1013.25,
-            reference_pressure_hpa: 1012,
-            height_reference_at: heightReferenceAt,
-            lux: event && kind === 3 ? (profile?.max_lux ?? 50) + 250 : 2 + Math.random() * 3,
-            ax: 0.02,
-            ay: 0.03,
-            az: 1,
-            gx: 0.1,
-            gy: 0.1,
-            gz: 0,
-            pitch_deg: event && kind === 2 ? 65 : Math.sin(n / 4) * 4,
-            roll_deg: Math.cos(n / 6) * 3,
-            shock_g: event && kind === 1 ? 4.5 : 1 + Math.random() * 0.09,
-            rssi: -49 - Math.floor(Math.random() * 10),
-            simulated: true,
-          }),
+          onRetry: (ms) => {
+            if (alive) setRetryMessage(`Device busy · retrying in ${(ms / 1000).toFixed(1)} s`);
+          },
+          readings: [
+            {
+              device_uid: device,
+              recorded_at: new Date().toISOString(),
+              temp_c:
+                event && kind === 0
+                  ? (profile?.temp_max_c ?? 8) + 4
+                  : middle + Math.sin(n / 5) * 0.5,
+              pressure_hpa: 1012 + Math.sin(n / 7) * 2,
+              sea_level_pressure_hpa: 1013.25,
+              reference_pressure_hpa: 1012,
+              height_reference_at: heightReferenceAt,
+              lux: event && kind === 3 ? (profile?.max_lux ?? 50) + 250 : 2 + Math.random() * 3,
+              ax: 0.02,
+              ay: 0.03,
+              az: 1,
+              gx: 0.1,
+              gy: 0.1,
+              gz: 0,
+              pitch_deg: event && kind === 2 ? 65 : Math.sin(n / 4) * 4,
+              roll_deg: Math.cos(n / 6) * 3,
+              shock_g: event && kind === 1 ? 4.5 : 1 + Math.random() * 0.09,
+              rssi: -49 - Math.floor(Math.random() * 10),
+              simulated: true,
+            },
+          ],
         });
-        const result = await response.json();
-        if (!response.ok) throw new Error(result.error || `Ingestion failed (${response.status})`);
         if (alive) {
           n++;
           setCount(n);
           setError('');
+          setRetryMessage('');
           if (n === 1) void refreshRef.current();
         }
       } catch (e) {
@@ -106,8 +113,6 @@ export function Simulator({
           toast.error(message);
           return;
         }
-      } finally {
-        clearTimeout(timeout);
       }
       if (alive) timer = setTimeout(() => void send(), 10000);
     };
@@ -176,6 +181,11 @@ export function Simulator({
               {error}
             </p>
           )}
+          {running && retryMessage && (
+            <p className="muted small" role="status">
+              {retryMessage}
+            </p>
+          )}
           {running && (
             <div className="sim-status">
               <span className="live-dot" />
@@ -191,6 +201,8 @@ export function Simulator({
               disabled={!running && (!device || token.length < 32 || !telemetryUrl)}
               onClick={() => {
                 setCount(0);
+                setError('');
+                setRetryMessage('');
                 setRunning((v) => !v);
               }}
             >

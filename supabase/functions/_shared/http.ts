@@ -8,13 +8,19 @@ export function cors(request: Request) {
     Vary: 'Origin',
     'Access-Control-Allow-Headers': 'content-type,x-device-token,x-maintenance-token',
     'Access-Control-Allow-Methods': 'POST,OPTIONS',
+    'Access-Control-Expose-Headers': 'Retry-After',
     'Cache-Control': 'no-store',
   };
 }
-export function json(request: Request, body: unknown, status = 200) {
+export function json(
+  request: Request,
+  body: unknown,
+  status = 200,
+  headers: Record<string, string> = {},
+) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...cors(request), 'Content-Type': 'application/json' },
+    headers: { ...cors(request), 'Content-Type': 'application/json', ...headers },
   });
 }
 export function originAllowed(request: Request) {
