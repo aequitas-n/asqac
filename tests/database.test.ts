@@ -81,6 +81,7 @@ before(async () => {
     '202611030006_batch_ingestion.sql',
     '202611030007_barometric_height.sql',
     '202611030008_device_rate_limit.sql',
+    '202611030010_acknowledge_all_alerts.sql',
   ])
     await db.exec(
       await readFile(new URL(`../supabase/migrations/${file}`, import.meta.url), 'utf8'),
@@ -251,6 +252,68 @@ describe('PostgreSQL schema, RLS and audited workflows', { concurrency: false },
     );
     assert.equal(logs.rows.length, 1);
     assert.equal(logs.rows[0].actor_id, tech);
+  });
+  test('bulk acknowledgement requires staff access', async () => {
+    await assert.rejects(asRole('anon', null, 'select public.acknowledge_all_alerts()'));
+    await assert.rejects(
+      staff('30000000-0000-4000-8000-000000000099', 'select public.acknowledge_all_alerts()'),
+      /Staff role required/,
+    );
+  });
+  test('bulk acknowledgement audits every pending event once and preserves prior responses', async () => {
+    await db.query(
+      `insert into public.alerts(capsule_id,transport_id,severity,alert_type,title,message,resolved_at)
+       select $1,$2,'info','connectivity','Recovered event ' || n,'Test fixture',now()
+       from generate_series(1,1001) n`,
+      [cap1, transportId],
+    );
+    const pending = (await db.query('select * from public.alerts where not acknowledged')).rows;
+    const prior = (await db.query('select * from public.alerts where acknowledged order by id'))
+      .rows;
+    assert.ok(pending.length > 1000, 'bulk action must cover more than the loaded history');
+    const before = (
+      await db.query("select * from public.audit_log where action='Alert acknowledged'")
+    ).rows.length;
+    const result = await staff(doctor, 'select public.acknowledge_all_alerts() as count');
+    assert.equal(result.rows[0].count, pending.length);
+    assert.equal(
+      (await db.query('select * from public.alerts where not acknowledged')).rows.length,
+      0,
+    );
+    const updatedById = new Map(
+      (await db.query('select * from public.alerts')).rows.map((a) => [a.id, a]),
+    );
+    const auditByAlert = new Map(
+      (
+        await db.query(
+          "select * from public.audit_log where action='Alert acknowledged' and detail->>'bulk'='true'",
+        )
+      ).rows.map((a) => [(a.detail as { alert_id: string }).alert_id, a]),
+    );
+    assert.equal(auditByAlert.size, pending.length);
+    for (const alert of pending) {
+      const updated = updatedById.get(alert.id)!;
+      assert.equal(updated.acknowledged_by, doctor);
+      assert.ok(updated.acknowledged_at);
+      assert.equal(updated.title, alert.title);
+      assert.deepEqual(updated.resolved_at, alert.resolved_at);
+      assert.equal(auditByAlert.get(alert.id)?.actor_id, doctor);
+    }
+    const preserved = (
+      await db.query('select * from public.alerts where id=any($1::uuid[]) order by id', [
+        prior.map((a) => a.id),
+      ])
+    ).rows;
+    assert.deepEqual(preserved, prior);
+    assert.equal(
+      (await staff(tech, 'select public.acknowledge_all_alerts() as count')).rows[0].count,
+      0,
+    );
+    assert.equal(
+      (await db.query("select * from public.audit_log where action='Alert acknowledged'")).rows
+        .length,
+      before + pending.length,
+    );
   });
   test('unassigned/old timestamps cannot bleed into the active transport', async () => {
     const countBefore = (

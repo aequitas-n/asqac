@@ -26,7 +26,7 @@ after(async () => {
 });
 describe('Combined Supabase SQL editor setup', () => {
   test('runs all migrations and preserves an already-created Auth account', async () => {
-    assert.equal((await db.query('select * from public.asqac_schema_migrations')).rows.length, 9);
+    assert.equal((await db.query('select * from public.asqac_schema_migrations')).rows.length, 10);
     assert.equal(
       (await db.query('select id from auth.users where email=$1', ['doctor@asqac.test'])).rows[0]
         .id,

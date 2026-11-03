@@ -18,7 +18,7 @@ The interface follows `uialone-prompt.txt` and `reference.webp`: a light rounded
 
 This workspace is configured for **`chhpbpqoaikbcicxdnzj`** at `https://chhpbpqoaikbcicxdnzj.supabase.co`. The ignored `.env` contains the exact public keys and URLs you supplied. Administrative keys have no `VITE_` prefix and are only read by trusted local provisioning scripts. The browser client prefers `VITE_SUPABASE_PUBLISHABLE_KEY` and falls back to `VITE_SUPABASE_ANON_KEY`.
 
-**Current remote status (3 November 2026): connected and verified.** All nine migrations are installed, staff RLS policies and Realtime are active, and the `telemetry` function is deployed with JWT verification disabled and device-token authentication enabled. Legacy and batch uploads now share a 250 ms admission window. The browser and terminal simulators use batches and retry a throttled packet automatically with its original timestamp. Both confirmed demo accounts, CAP0001–CAP0004, seven handling profiles and the real CAP0001 device remain. At the user's request, seeded synthetic history and live verification data have been removed; the user's two specimens/transports were preserved. Public signup is disabled. Scheduled connection checks and retention remain active.
+**Current remote status (3 November 2026): connected and verified.** All ten migrations are installed, staff RLS policies and Realtime are active, and the `telemetry` function is deployed with JWT verification disabled and device-token authentication enabled. Legacy and batch uploads now share a 250 ms admission window. The browser and terminal simulators use batches and retry a throttled packet automatically with its original timestamp. Both confirmed demo accounts, CAP0001–CAP0004, seven handling profiles and the real CAP0001 device remain. At the user's request, seeded synthetic history and live verification data have been removed; the user's two specimens/transports were preserved. Public signup is disabled. Scheduled connection checks and retention remain active.
 
 The [verified cleanup](docs/test-data-cleanup.json) removed 12 synthetic/verification specimens and transports, 55 simulated readings, seven test alerts, 68 test audit events and four temporary verification devices. It preserved physical readings and the active ESP32 credential. A private backup is stored under ignored `artifacts/`. The combined setup applies the same scoped cleanup after the original historical seed, so a fresh installation ends without fabricated reports. Normal builds and deployments do not run the optional live verification scripts.
 
@@ -45,6 +45,8 @@ The SQL script can also seed the accounts independently of the already-completed
 | Technician        | technician@asqac.test | `technician`  |
 | Doctor / receiver | doctor@asqac.test     | `doctor`      |
 
+The Alerts page includes **Acknowledge all**: one staff action acknowledges every pending alert across all filters, including older events outside the loaded history. Each event keeps its own actor-attributed custody entry. Previously acknowledged events and their original staff responses remain unchanged.
+
 ### Exact deployment commands
 
 The CLI is installed locally in this repository. Run:
@@ -67,7 +69,7 @@ Use `--use-api` when Docker is unavailable. `verify_jwt = false` is also declare
 For a fresh database, you can apply migrations through CLI v3 with `npx supabase db push --remote=YOUR_PROJECT_REF --yes` instead of the SQL Editor. Choose one initial migration path. After a SQL Editor installation, record the applied versions in the CLI ledger before any future `db push`:
 
 ```sh
-npx supabase migration repair 202611020001 202611020002 202611020003 202611020004 202611020005 202611030006 202611030007 202611030008 202611030009 --status applied --remote=chhpbpqoaikbcicxdnzj --yes
+npx supabase migration repair 202611020001 202611020002 202611020003 202611020004 202611020005 202611030006 202611030007 202611030008 202611030009 202611030010 --status applied --remote=chhpbpqoaikbcicxdnzj --yes
 ```
 
 That ledger repair is already complete for your project; do not recreate its schema. CLI v3 database commands default to a local target, so specify `--remote` for cloud database operations.
@@ -147,6 +149,7 @@ Alternatively, paste and execute the **entire contents** of these files in the S
 7. `supabase/migrations/202611030007_barometric_height.sql`
 8. `supabase/migrations/202611030008_device_rate_limit.sql`
 9. `supabase/migrations/202611030009_remove_synthetic_history.sql`
+10. `supabase/migrations/202611030010_acknowledge_all_alerts.sql`
 
 Apply each migration once. The seed creates seven handling presets and four capsules. Migration 005 adds the confirmed demo accounts and hashed CAP0001 credential. The nine historical examples originally created by migration 003 are removed by migration 009, along with precisely marked verification records. User-entered work and physical readings are preserved. Reports use actual remaining database rows.
 

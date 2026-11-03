@@ -13,6 +13,7 @@ export default function Alerts() {
   const [only, setOnly] = useState(true);
   const [group, setGroup] = useState('capsule');
   const [busy, setBusy] = useState('');
+  const openCount = alerts.filter((a) => !a.acknowledged).length;
   const filtered = alerts.filter(
     (a) =>
       (severity === 'all' || a.severity === severity) &&
@@ -36,12 +37,40 @@ export default function Alerts() {
       setBusy('');
     }
   }
+  async function acknowledgeAll() {
+    setBusy('all');
+    try {
+      const count = await rpc<number>('acknowledge_all_alerts');
+      await refresh();
+      toast.success(
+        count
+          ? `${count} alert${count === 1 ? '' : 's'} acknowledged and added to the custody record.`
+          : 'All alerts are already acknowledged.',
+      );
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Unable to acknowledge all alerts');
+    } finally {
+      setBusy('');
+    }
+  }
   return (
     <>
       <PageTitle
         eyebrow="QUALITY ASSURANCE / EVENT CENTRE"
         title="Handling alerts"
         description="Review handling excursions and record the staff response."
+        action={
+          <button
+            className="button primary"
+            disabled={loading || !!busy || openCount === 0}
+            aria-busy={busy === 'all'}
+            title="Acknowledge every unacknowledged alert across all filters. Each event remains in the audit history."
+            onClick={() => void acknowledgeAll()}
+          >
+            <CheckCheck size={17} />
+            {busy === 'all' ? 'Acknowledging…' : `Acknowledge all (${openCount})`}
+          </button>
+        }
       />
       <div className="alert-summary">
         <div>
@@ -152,7 +181,7 @@ export default function Alerts() {
                   ) : (
                     <button
                       className="button secondary small"
-                      disabled={busy === a.id}
+                      disabled={!!busy}
                       onClick={() => void acknowledge(a.id)}
                     >
                       <Check size={15} />
