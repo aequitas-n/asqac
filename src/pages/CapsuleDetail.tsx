@@ -41,7 +41,8 @@ export default function CapsuleDetail() {
   const { profile: staff } = useAuth();
   const now = useClock(500);
   const [trend, setTrend] = useState<Trend>('temp_c');
-  const [busy, setBusy] = useState(false);
+  const [pendingAction, setPendingAction] = useState<string | null>(null);
+  const busy = pendingAction !== null;
   const [verdictOpen, setVerdictOpen] = useState(false);
   const [qr, setQr] = useState(false);
   const currentAlerts = alerts.filter((a) => a.transport_id === transport?.id);
@@ -52,7 +53,7 @@ export default function CapsuleDetail() {
   const barometry = live ? withBarometry(live) : undefined;
   async function action(name: string) {
     if (!transport) return;
-    setBusy(true);
+    setPendingAction(name);
     try {
       await rpc('transition_transport', { p_transport: transport.id, p_action: name });
       await data.refresh();
@@ -64,7 +65,7 @@ export default function CapsuleDetail() {
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Action failed');
     } finally {
-      setBusy(false);
+      setPendingAction(null);
     }
   }
   if (data.loading) return <Skeleton />;
@@ -92,7 +93,48 @@ export default function CapsuleDetail() {
         description={capsule.label}
         action={
           <>
-            <Badge value={capsule.status} />
+            <Badge value={transport?.state ?? capsule.status} />
+            {capsule.status === 'alert' && <Badge value="alert" />}
+            {technician && transport?.state === 'registered' && (
+              <button
+                className="button primary"
+                disabled={busy}
+                onClick={() => void action('prepare')}
+              >
+                <ShieldCheck size={16} />
+                {pendingAction === 'prepare' ? 'Preparing…' : 'Prepare transport'}
+              </button>
+            )}
+            {technician && transport?.state === 'prepared' && (
+              <button
+                className="button primary"
+                disabled={busy}
+                onClick={() => void action('start')}
+              >
+                <Play size={16} />
+                {pendingAction === 'start' ? 'Starting…' : 'Start transport'}
+              </button>
+            )}
+            {doctor && transport?.state === 'in_transit' && (
+              <button
+                className="button primary"
+                disabled={busy}
+                onClick={() => void action('arrive')}
+              >
+                <Download size={16} />
+                {pendingAction === 'arrive' ? 'Receiving…' : 'Receive & end transport'}
+              </button>
+            )}
+            {doctor && transport?.state === 'arrived' && (
+              <button
+                className="button primary"
+                disabled={busy}
+                onClick={() => setVerdictOpen(true)}
+              >
+                <CheckCircle2 size={16} />
+                Review & record verdict
+              </button>
+            )}
             <button className="button secondary small" onClick={() => setQr(true)}>
               <QrCode size={16} />
               Capsule label
@@ -100,6 +142,25 @@ export default function CapsuleDetail() {
           </>
         }
       />
+      {transport && ['registered', 'prepared'].includes(transport.state) && (
+        <div className="transport-next-step" role="status">
+          <ShieldCheck size={20} />
+          <div>
+            <strong>
+              {transport.state === 'registered'
+                ? 'Next: load and prepare the capsule'
+                : 'Next: start the transport'}
+            </strong>
+            <p>
+              {transport.state === 'registered'
+                ? 'Technician: load the specimen, then select Prepare transport above. The next button will be Start transport.'
+                : 'Technician: select Start transport above when the capsule leaves for the lab.'}{' '}
+              The coloured limits are a profile preview. Handling alerts and the transport timer
+              begin after Start transport.
+            </p>
+          </div>
+        </div>
+      )}
       <div className="capsule-context">
         <div>
           <span className="eyebrow">SPECIMEN</span>
@@ -299,42 +360,6 @@ export default function CapsuleDetail() {
                 </div>
               )}
               <div className="button-row">
-                {technician && transport.state === 'registered' && (
-                  <button
-                    className="button primary"
-                    disabled={busy}
-                    onClick={() => void action('prepare')}
-                  >
-                    <ShieldCheck size={16} />
-                    Prepare transport
-                  </button>
-                )}
-                {technician && transport.state === 'prepared' && (
-                  <button
-                    className="button primary"
-                    disabled={busy}
-                    onClick={() => void action('start')}
-                  >
-                    <Play size={16} />
-                    Start transport
-                  </button>
-                )}
-                {doctor && transport.state === 'in_transit' && (
-                  <button
-                    className="button primary"
-                    disabled={busy}
-                    onClick={() => void action('arrive')}
-                  >
-                    <Download size={16} />
-                    Receive & end transport
-                  </button>
-                )}
-                {doctor && transport.state === 'arrived' && (
-                  <button className="button primary" onClick={() => setVerdictOpen(true)}>
-                    <CheckCircle2 size={16} />
-                    Review & record verdict
-                  </button>
-                )}
                 <Link to={`/reports/${transport.id}`} className="button secondary small">
                   Custody report
                   <ArrowRight size={14} />

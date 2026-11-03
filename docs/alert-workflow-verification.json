@@ -1,0 +1,41 @@
+{
+  "checked_at": "2026-11-03T04:22:39.108Z",
+  "result": "pass",
+  "simulated": true,
+  "browser_used": false,
+  "cap0001_modified": false,
+  "steps": [
+    {
+      "stage": "Registered",
+      "detail": "Profile previews do not create transport excursions."
+    },
+    {
+      "stage": "Prepared",
+      "detail": "Technician preparation succeeds; timer and excursion detection await Start."
+    },
+    {
+      "stage": "In transit",
+      "detail": "31.4 °C and 1333.3 lx produce critical temperature and light alerts through staff Realtime."
+    },
+    {
+      "stage": "Acknowledgement",
+      "detail": "Verification alerts acknowledged through the audited technician RPC."
+    },
+    {
+      "stage": "Doctor receiving",
+      "detail": "Receiver ended transport and recorded a verdict; CAP0004 is idle again."
+    }
+  ],
+  "realtime_alerts": 2,
+  "alert_types": [
+    {
+      "type": "temperature",
+      "severity": "critical"
+    },
+    {
+      "type": "light",
+      "severity": "warning"
+    }
+  ],
+  "transport_id": "d63848bb-1241-4868-94a2-4585c0ce1e34"
+}

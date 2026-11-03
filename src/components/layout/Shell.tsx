@@ -197,30 +197,20 @@ export default function Shell() {
             </button>
           </nav>
           <div className="rail-bottom">
-            <div className="sim-promo">
-              <span className="sim-promo-icon">
-                <FlaskConical size={21} />
+            <button
+              className="sidebar-simulator"
+              onClick={() => {
+                setMenuOpen(false);
+                setSimRequest((n) => n + 1);
+              }}
+            >
+              <FlaskConical size={21} />
+              <span>
+                <strong>Simulator</strong>
+                <small>{simulated ? 'Running' : 'Open simulator'}</small>
               </span>
-              <div className="sim-promo-top">
-                <span>Simulator mode</span>
-                <i>{simulated ? 'Running' : 'Stopped'}</i>
-              </div>
-              <p>
-                Test capsule handling
-                <br />
-                without the hardware.
-              </p>
-              <button
-                onClick={() => {
-                  setMenuOpen(false);
-                  setSimRequest((n) => n + 1);
-                }}
-              >
-                Open simulator
-                <ArrowUpRight size={16} />
-              </button>
-            </div>
-            <span className="rail-version">Capsule Care Connect · v1.0</span>
+              <ArrowUpRight size={16} />
+            </button>
           </div>
         </aside>
       )}
@@ -315,7 +305,6 @@ export default function Shell() {
         </main>
         <footer className="app-footer">
           <span>ASQAC · Capsule Care Connect</span>
-          <span>University biomedical engineering · Research prototype</span>
         </footer>
       </div>
       {searchOpen && (

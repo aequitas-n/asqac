@@ -378,4 +378,73 @@ describe('PostgreSQL schema, RLS and audited workflows', { concurrency: false },
         .length > 4,
     );
   });
+  test('registration and preparation preview limits; Start enables temperature and light alerts', async () => {
+    const cap = '20000000-0000-4000-8000-000000000003';
+    const uid = 'WORKFLOW-ALERT-TEST';
+    const created = await staff(tech, 'select public.register_specimen($1::jsonb) as result', [
+      JSON.stringify(input(cap)),
+    ]);
+    const id = (created.rows[0].result as { transport: { id: string } }).transport.id;
+    await db.query(
+      'insert into public.devices(capsule_id,device_uid,token_hash) values($1,$2,$3)',
+      [cap, uid, hash],
+    );
+    const send = async (recorded_at: string) => {
+      await db.query('update public.devices set last_ingested_at=null where device_uid=$1', [uid]);
+      const packet = {
+        device_uid: uid,
+        recorded_at,
+        temp_c: 31.4,
+        pressure_hpa: 1012.3,
+        lux: 1333.3,
+        ax: 0,
+        ay: 0,
+        az: 1,
+        pitch_deg: 0,
+        roll_deg: 0,
+        shock_g: 1,
+        rssi: -55,
+        simulated: true,
+      };
+      const result = await service('select public.ingest_reading($1,$2,$3::jsonb) as result', [
+        uid,
+        hash,
+        JSON.stringify(packet),
+      ]);
+      return result.rows[0].result as { transport_id: string | null };
+    };
+    const before = await send(new Date(Date.now() - 200).toISOString());
+    assert.equal(before.transport_id, null);
+    await staff(tech, "select public.transition_transport($1,'prepare')", [id]);
+    const prepared = await send(new Date(Date.now() - 100).toISOString());
+    assert.equal(prepared.transport_id, null);
+    assert.equal(
+      (
+        await db.query('select count(*)::int as count from public.alerts where transport_id=$1', [
+          id,
+        ])
+      ).rows[0].count,
+      0,
+    );
+    const started = await staff(tech, "select public.transition_transport($1,'start') as result", [
+      id,
+    ]);
+    const start = (started.rows[0].result as { started_at: string }).started_at;
+    assert.equal(
+      (await send(new Date(Math.max(Date.now(), Date.parse(start)) + 10).toISOString()))
+        .transport_id,
+      id,
+    );
+    const alerts = (
+      await db.query('select alert_type,severity from public.alerts where transport_id=$1', [id])
+    ).rows;
+    assert.ok(alerts.some((a) => a.alert_type === 'temperature' && a.severity === 'critical'));
+    assert.ok(alerts.some((a) => a.alert_type === 'light'));
+    await staff(doctor, "select public.transition_transport($1,'arrive')", [id]);
+    await staff(
+      doctor,
+      "select public.transition_transport($1,'close','review_required','Isolated simulated workflow verification.')",
+      [id],
+    );
+  });
 });

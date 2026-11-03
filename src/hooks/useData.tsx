@@ -10,6 +10,8 @@ import {
 } from 'react';
 import { supabase } from '../lib/supabase';
 import { mergeReadings } from '../lib/readings';
+import { mergeAlerts } from '../lib/alerts';
+import { toast } from 'sonner';
 import { useAuth } from './useAuth';
 import type {
   Alert,
@@ -51,6 +53,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(Boolean(user));
   const [error, setError] = useState<string | null>(null);
   const [realtime, setRealtime] = useState('Disconnected');
+  const capsuleNames = useRef(new Map<string, string>());
+  useEffect(() => {
+    capsuleNames.current = new Map(data.capsules.map((c) => [c.id, c.code]));
+  }, [data.capsules]);
   const refreshTimer = useRef<ReturnType<typeof setTimeout>>();
   const epoch = useRef(0);
   const refresh = useCallback(async () => {
@@ -93,7 +99,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
         profiles: results[1].data as HandlingProfile[],
         specimens,
         transports: merge(results[3].data as Transport[], active),
-        alerts: merge(results[4].data as Alert[], results[8].data as Alert[]),
+        alerts: mergeAlerts(
+          merge(results[4].data as Alert[], results[8].data as Alert[]),
+          previous.alerts,
+        ),
         audit: results[5].data as AuditEntry[],
         readings: mergeReadings(results[6].data as Reading[], previous.readings),
       }));
@@ -150,6 +159,22 @@ export function DataProvider({ children }: { children: ReactNode }) {
         'postgres_changes',
         { event: '*', schema: 'public', table },
         (payload) => {
+          if (table === 'alerts' && payload.eventType === 'INSERT') {
+            const alert = payload.new as Alert;
+            if (!alert.acknowledged) {
+              const notify =
+                alert.severity === 'critical'
+                  ? toast.error
+                  : alert.severity === 'warning'
+                    ? toast.warning
+                    : toast.info;
+              notify(alert.title, {
+                id: `handling-${alert.id}`,
+                description: `${capsuleNames.current.get(alert.capsule_id) ?? 'Capsule'} · ${alert.message}`,
+                duration: 8000,
+              });
+            }
+          }
           setData((previous) => {
             const rows = previous[key as keyof typeof previous] as { id: string | number }[];
             const row = payload.new as { id: string | number };
@@ -157,7 +182,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
             const updated =
               payload.eventType === 'DELETE'
                 ? rows.filter((r) => r.id !== old.id)
-                : [row, ...rows.filter((r) => r.id !== row.id)];
+                : key === 'alerts'
+                  ? mergeAlerts([row as Alert], previous.alerts)
+                  : [row, ...rows.filter((r) => r.id !== row.id)];
             return {
               ...previous,
               [key]: updated.slice(0, key === 'audit' ? 500 : key === 'alerts' ? 1000 : 500),

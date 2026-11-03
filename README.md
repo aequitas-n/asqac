@@ -200,14 +200,16 @@ The browser simulator accepts the secret in a password field and keeps it in mem
 
 1. Restart Vite after changing `.env`, then sign in as the technician.
 2. Register an anonymised reference, requested test, specimen type, corresponding preset, ward and lab. Select a free capsule or scan its printed QR label. Required fields have explicit validation messages; submit is only disabled while saving.
-3. Print the generated specimen label. Open capsule detail, choose **Prepare transport**, then **Start transport**.
+3. Print the generated specimen label. Open capsule detail and use the primary button **beside the capsule title**: choose **Prepare transport** after loading the specimen, then **Start transport** when departing. The journey changes from Registered → Prepared → In transit. The status badge now reflects that journey state; registration alone does not start it. Before departure, coloured limits are a profile preview; handling alerts and the transport timer begin after Start.
 4. Open **Simulator** in the status strip, select the registered device, paste its token and start it. Packets are sent every ten seconds to the real ingestion function and carry `simulated=true`.
 5. Enable **Stress scenario**. Approximately every sixth packet, one of temperature, shock, tilt or light exceeds the preset. Watch the gauges, chart, excursion history and open-alert count change. Stop the simulator after presenting.
 6. Acknowledge an alert. It remains retained, with actor and acknowledgement time.
-7. Sign out, sign in as the doctor, open the capsule, choose **Receive & end transport**, review the handling record, then **Review & record verdict**. Review Required and Reject require notes. Closing releases the capsule.
+7. Sign out, sign in as the doctor, open the capsule and use **Receive & end transport** beside its title. Review the handling record, then use **Review & record verdict** in the same header. Review Required and Reject require notes. Closing releases the capsule.
 8. Open Reports, filter/search, export the custody CSV, or print a transport report. QR labels and reports have dedicated print styles.
 
 The receiving doctor always chooses the final disposition. The suggestion is conservative: any critical episode → Reject; warnings, missing coverage, gaps or simulated telemetry → Review Required; otherwise → Accept. Acknowledging an excursion never erases it from that assessment.
+
+New live alerts also appear as on-screen notifications with the capsule code. Refresh snapshots cannot drop a newer alert or undo its acknowledgement, recovery or critical escalation. The sidebar uses a compact simulator control and height-aware spacing to keep navigation in one view without an inner scrollbar. The requested research-prototype footer text has been removed. The isolated [hosted workflow check](docs/alert-workflow-verification.json) verified Registered → Prepared → In transit, critical temperature/light alerts through Realtime, acknowledgement and doctor closure on simulated CAP0004. CAP0001 was not modified. Repeat with `node --env-file=.env scripts/verify-alert-workflow.mjs` only while CAP0004 is idle; the labelled verification journey and alerts remain in audit history.
 
 ### Terminal simulator
 
