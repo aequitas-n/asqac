@@ -1,22 +1,38 @@
 {
-  "prepared_at": "2026-11-03T03:50:23.647Z",
-  "status": "Vercel deployment completed; further hosting/integration changes paused by user",
+  "checked_at": "2026-11-03T04:02:36.053Z",
+  "status": "deployed and verified; GitHub main automatically builds production",
   "hosting_provider": "Vercel",
-  "directory": "D:\\college\\ASQAC\\artifacts\\frontend-deploy\\2026-11-03T03-50-23-496Z\\asqac-capsule-care-connect",
-  "supabase_project_ref": "chhpbpqoaikbcicxdnzj",
-  "backend_url_changed": false,
-  "source_and_device_credentials_uploaded": false,
-  "deployment_id": "dpl_DppkSKX3Y8o8Vm7JQtHeSVZ7H33C",
-  "deployment_url": "https://asqac-capsule-care-connect-4wopo1uce-aequitas01.vercel.app",
-  "production_url": "https://asqac-capsule-care-connect.vercel.app",
-  "ready_state": "READY",
   "vercel_cli_account": "aequitas-n",
   "deployment_scope": "aequitas01",
-  "integration_verified": false,
-  "remaining": [
-    "Verify deployment access/protection",
-    "Allow production frontend origin in Supabase telemetry CORS",
-    "Configure Supabase Auth frontend URLs"
+  "project": "asqac-capsule-care-connect",
+  "project_id": "prj_UpOq45SNmeALa9BCdGuELd5T6i6L",
+  "repository": "https://github.com/aequitas-n/asqac",
+  "production_branch": "main",
+  "source": "git",
+  "verified_commit": "3a43250bca8aafcc1b10d38bb0a85c38b2c350a1",
+  "verified_deployment_id": "dpl_73SPekRs3ReX4uX8sSRYKXjq4DQL",
+  "verified_deployment_url": "https://asqac-capsule-care-connect-14xd7tfxu-aequitas01.vercel.app",
+  "production_url": "https://asqac-capsule-care-connect.vercel.app",
+  "ready_state": "READY",
+  "build": {
+    "framework": "vite",
+    "node": "24.x",
+    "install": "npm ci",
+    "command": "npm run build",
+    "output": "dist"
+  },
+  "public_environment_names": [
+    "VITE_SUPABASE_URL",
+    "VITE_SUPABASE_PUBLISHABLE_KEY",
+    "VITE_SUPABASE_ANON_KEY",
+    "VITE_TELEMETRY_URL"
   ],
-  "updated_at": "2026-11-03T03:53:52.769Z"
+  "supabase_project_ref": "chhpbpqoaikbcicxdnzj",
+  "backend_url_changed": false,
+  "administrative_credentials_committed": false,
+  "generated_artifacts_committed": false,
+  "demo_device_token_intentionally_in_firmware": true,
+  "integration_verified": true,
+  "browser_used": false,
+  "remaining": []
 }

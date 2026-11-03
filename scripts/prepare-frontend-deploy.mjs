@@ -6,11 +6,20 @@ import path from 'node:path';
 await import('./check-client-bundle.mjs');
 const root = fileURLToPath(new URL('../', import.meta.url));
 const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-const directory = path.join(root, 'artifacts', 'frontend-deploy', stamp, 'asqac-capsule-care-connect');
+const directory = path.join(
+  root,
+  'artifacts',
+  'frontend-deploy',
+  stamp,
+  'asqac-capsule-care-connect',
+);
 await mkdir(directory, { recursive: true });
 await cp(path.join(root, 'dist'), directory, { recursive: true });
 const config = JSON.parse(await readFile(path.join(root, 'vercel.json'), 'utf8'));
-await writeFile(path.join(directory, 'vercel.json'), JSON.stringify({ rewrites: config.rewrites }, null, 2));
+await writeFile(
+  path.join(directory, 'vercel.json'),
+  JSON.stringify({ rewrites: config.rewrites }, null, 2),
+);
 
 async function inspect(dir) {
   const entries = await readdir(dir, { withFileTypes: true });
@@ -31,5 +40,8 @@ const report = {
   backend_url_changed: false,
   source_and_device_credentials_uploaded: false,
 };
-await writeFile(path.join(root, 'docs', 'frontend-deployment.json'), JSON.stringify(report, null, 2) + '\n');
+await writeFile(
+  path.join(root, 'docs', 'frontend-deployment.json'),
+  JSON.stringify(report, null, 2) + '\n',
+);
 console.log(`Prepared static deployment: ${directory}`);

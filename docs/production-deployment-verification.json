@@ -1,0 +1,46 @@
+{
+  "checked_at": "2026-11-03T04:01:25.445Z",
+  "frontend": "https://asqac-capsule-care-connect.vercel.app",
+  "backend": "https://chhpbpqoaikbcicxdnzj.supabase.co",
+  "telemetry": "https://chhpbpqoaikbcicxdnzj.supabase.co/functions/v1/telemetry",
+  "browser_used": false,
+  "routes": [
+    {
+      "route": "/",
+      "status": 200
+    },
+    {
+      "route": "/login",
+      "status": 200
+    },
+    {
+      "route": "/capsules",
+      "status": 200
+    },
+    {
+      "route": "/reports",
+      "status": 200
+    }
+  ],
+  "logins": [
+    {
+      "role": "technician",
+      "authenticated": true,
+      "staff_rls_read": true,
+      "fleet_count": 4
+    },
+    {
+      "role": "doctor",
+      "authenticated": true,
+      "staff_rls_read": true,
+      "fleet_count": 4
+    }
+  ],
+  "telemetry_cors": true,
+  "entry_asset": {
+    "path": "/assets/index-BugR-eV7.js",
+    "status": 200
+  },
+  "result": "pass",
+  "scope": "Public production HTML/routes/assets, telemetry preflight and real staff Auth/RLS; no browser or telemetry writes"
+}
