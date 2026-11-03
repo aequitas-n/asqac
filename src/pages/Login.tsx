@@ -7,7 +7,7 @@ import { configured, supabase } from '../lib/supabase';
 import { useAuth } from '../hooks/useAuth';
 import { CapsuleDrawing } from '../components/Illustrations';
 export default function Login() {
-  const { user, loading, enterPreview } = useAuth();
+  const { user, loading, enterPreview, error: accessError, retryProfile } = useAuth();
   const navigate = useNavigate();
   const reduce = useReducedMotion();
   const [email, setEmail] = useState('');
@@ -122,9 +122,14 @@ export default function Login() {
                 </button>
               </div>
             </label>
-            {error && (
+            {(error || accessError) && (
               <div className="field-error" role="alert">
-                {error}
+                {error || accessError}
+                {accessError && (
+                  <button type="button" className="button secondary small" onClick={retryProfile}>
+                    Retry connection
+                  </button>
+                )}
               </div>
             )}
             <button className="button primary auth-submit" disabled={busy || loading}>

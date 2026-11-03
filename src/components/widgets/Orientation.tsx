@@ -1,9 +1,10 @@
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Capsule, ContactShadows } from '@react-three/drei';
-import { Component, memo, useEffect, useRef, type ReactNode } from 'react';
+import { Component, memo, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useReducedMotion } from 'framer-motion';
 import type { Group } from 'three';
 import { BubbleLevel } from './Gauges';
+import { watchContextLoss } from '../../lib/runtimeRecovery';
 function Model({ pitch, roll }: { pitch: number; roll: number }) {
   const group = useRef<Group>(null);
   const initial = useRef(true);
@@ -69,6 +70,24 @@ class Boundary extends Component<
   }
 }
 const Orientation = memo(function Orientation({ pitch, roll }: { pitch?: number; roll?: number }) {
+  const [canvas, setCanvas] = useState<HTMLCanvasElement | null>(null);
+  const [lost, setLost] = useState(false);
+  useEffect(() => (canvas ? watchContextLoss(canvas, () => setLost(true)) : undefined), [canvas]);
+  if (lost)
+    return (
+      <div className="orientation-fallback">
+        <BubbleLevel pitch={pitch} roll={roll} />
+        <button
+          className="button secondary small"
+          onClick={() => {
+            setCanvas(null);
+            setLost(false);
+          }}
+        >
+          Restore 3D view
+        </button>
+      </div>
+    );
   return (
     <Boundary pitch={pitch} roll={roll}>
       <div
@@ -78,6 +97,7 @@ const Orientation = memo(function Orientation({ pitch, roll }: { pitch?: number;
       >
         <div className="scene-grid" />
         <Canvas
+          onCreated={({ gl }) => setCanvas(gl.domElement)}
           frameloop="demand"
           camera={{ position: [0, 1, 5.4], fov: 35 }}
           dpr={[1, 1.5]}
@@ -88,7 +108,15 @@ const Orientation = memo(function Orientation({ pitch, roll }: { pitch?: number;
           <directionalLight position={[3, 4, 4]} intensity={4} />
           <directionalLight position={[-3, 2, -3]} color="#39b4cc" intensity={3} />
           <Model pitch={pitch ?? 0} roll={roll ?? 0} />
-          <ContactShadows position={[0, -1.6, 0]} opacity={0.4} scale={6} blur={3} far={3} />
+          <ContactShadows
+            frames={1}
+            resolution={128}
+            position={[0, -1.6, 0]}
+            opacity={0.4}
+            scale={6}
+            blur={3}
+            far={3}
+          />
         </Canvas>
         <div className="orientation-caption">
           {pitch === undefined ? 'ILLUSTRATIVE · AWAITING TELEMETRY' : 'MPU6050 · LIVE ORIENTATION'}

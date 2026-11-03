@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import {
   Activity,
   ArrowRight,
@@ -20,7 +20,8 @@ import {
 } from 'lucide-react';
 import { NavLink, Outlet, Link, useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Brand, Modal } from '../ui';
+import { Brand, Modal, Skeleton } from '../ui';
+import { RecoveryBoundary } from '../RecoveryBoundary';
 import { useAuth } from '../../hooks/useAuth';
 import { useData } from '../../hooks/useData';
 import { useClock } from '../../hooks/useClock';
@@ -34,7 +35,7 @@ const navigation = [
   { to: '/hardware', label: 'Hardware', icon: Cpu },
 ];
 export default function Shell() {
-  const { profile, preview, signOut } = useAuth();
+  const { profile, preview, signOut, error: accessError, retryProfile } = useAuth();
   const { realtime, alerts, error, refresh, capsules, transports, specimens } = useData();
   const now = useClock();
   const location = useLocation();
@@ -290,6 +291,12 @@ export default function Shell() {
             </Link>
           </div>
         )}
+        {accessError && (
+          <div className="error-banner" role="alert">
+            {accessError}
+            <button onClick={retryProfile}>Retry connection</button>
+          </div>
+        )}
         {error && (
           <div className="error-banner" role="alert">
             {error}
@@ -301,7 +308,11 @@ export default function Shell() {
           tabIndex={-1}
           aria-label={allowed.find((n) => location.pathname.startsWith(n.to))?.label ?? 'Workspace'}
         >
-          <Outlet />
+          <RecoveryBoundary key={location.pathname}>
+            <Suspense fallback={<Skeleton />}>
+              <Outlet />
+            </Suspense>
+          </RecoveryBoundary>
         </main>
         <footer className="app-footer">
           <span>ASQAC · Capsule Care Connect</span>

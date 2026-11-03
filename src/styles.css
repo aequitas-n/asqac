@@ -5776,6 +5776,32 @@ tbody tr:hover {
   font-size: 12px;
   line-height: 1.6;
 }
+.recovery-view {
+  max-width: 600px;
+  margin: 32px auto;
+  padding: 28px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: #fff;
+  color: var(--text);
+}
+.recovery-view h1 {
+  margin: 14px 0 10px;
+  font-size: clamp(22px, 3vw, 30px);
+}
+.recovery-view p {
+  color: var(--muted);
+  line-height: 1.6;
+  margin-bottom: 20px;
+}
+.recovery-view .button-row {
+  padding: 0;
+  flex-wrap: wrap;
+}
+.orientation-fallback > button {
+  display: block;
+  margin: 0 auto 16px;
+}
 @media (max-height: 700px) {
   .nav-rail {
     padding-block: 10px;

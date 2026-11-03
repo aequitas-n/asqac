@@ -10,8 +10,10 @@ import {
 } from 'react';
 import { supabase } from '../lib/supabase';
 import { mergeReadings } from '../lib/readings';
+import { createRequestRunner } from '../lib/requestRunner';
 import { mergeAlerts } from '../lib/alerts';
 import { toast } from 'sonner';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { useAuth } from './useAuth';
 import type {
   Alert,
@@ -47,7 +49,13 @@ interface DataValue extends Data {
   refresh: () => Promise<void>;
 }
 const DataContext = createContext<DataValue | null>(null);
-export function DataProvider({ children }: { children: ReactNode }) {
+export function DataProvider({
+  children,
+  backend = supabase,
+}: {
+  children: ReactNode;
+  backend?: SupabaseClient | null;
+}) {
   const { user, profile } = useAuth();
   const [data, setData] = useState<Data>(empty);
   const [loading, setLoading] = useState(Boolean(user));
@@ -57,94 +65,165 @@ export function DataProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     capsuleNames.current = new Map(data.capsules.map((c) => [c.id, c.code]));
   }, [data.capsules]);
-  const refreshTimer = useRef<ReturnType<typeof setTimeout>>();
-  const epoch = useRef(0);
+  const profileId = profile?.id;
+  const role = profile?.role;
+  const identity = useRef<string | undefined>(undefined);
+  const lastSnapshotAt = useRef(0);
+  const refreshTask = useMemo(
+    () =>
+      createRequestRunner(
+        async (signal) => {
+          const client = backend;
+          if (!client || !profileId) return null;
+          const results = await Promise.all([
+            client.from('capsules').select('*').order('code').abortSignal(signal),
+            client.from('handling_profiles').select('*').order('code').abortSignal(signal),
+            client
+              .from('specimens')
+              .select('*')
+              .order('created_at', { ascending: false })
+              .limit(500)
+              .abortSignal(signal),
+            client
+              .from('transports')
+              .select('*')
+              .order('created_at', { ascending: false })
+              .limit(500)
+              .abortSignal(signal),
+            client
+              .from('alerts')
+              .select('*')
+              .order('created_at', { ascending: false })
+              .limit(1000)
+              .abortSignal(signal),
+            client
+              .from('audit_log')
+              .select('*')
+              .order('created_at', { ascending: false })
+              .limit(500)
+              .abortSignal(signal),
+            client.rpc('recent_fleet_readings').abortSignal(signal),
+            client.from('transports').select('*').neq('state', 'closed').abortSignal(signal),
+            client.from('alerts').select('*').eq('acknowledged', false).abortSignal(signal),
+          ]);
+          for (const result of results) if (result.error) throw result.error;
+          const active = results[7].data as Transport[];
+          let specimens = results[2].data as Specimen[];
+          const missing = active
+            .map((t) => t.specimen_id)
+            .filter((id) => !specimens.some((s) => s.id === id));
+          if (missing.length) {
+            const extra = await client
+              .from('specimens')
+              .select('*')
+              .in('id', missing)
+              .abortSignal(signal);
+            if (extra.error) throw extra.error;
+            specimens = [...specimens, ...(extra.data as Specimen[])];
+          }
+          const merge = <T extends { id: string }>(first: T[], second: T[]) => [
+            ...new Map([...first, ...second].map((row) => [row.id, row])).values(),
+          ];
+          return {
+            capsules: results[0].data as Capsule[],
+            profiles: results[1].data as HandlingProfile[],
+            specimens,
+            transports: merge(results[3].data as Transport[], active),
+            alerts: merge(results[4].data as Alert[], results[8].data as Alert[]),
+            audit: results[5].data as AuditEntry[],
+            readings: results[6].data as Reading[],
+          };
+        },
+        {
+          success: (snapshot) => {
+            if (!snapshot || identity.current !== profileId) return;
+            lastSnapshotAt.current = Date.now();
+            setData((previous) => ({
+              ...snapshot,
+              alerts: mergeAlerts(snapshot.alerts, previous.alerts),
+              readings: mergeReadings(snapshot.readings, previous.readings),
+            }));
+            setError(null);
+          },
+          failure: (err) => {
+            if (identity.current !== profileId) return;
+            setError(
+              err instanceof Error
+                ? err.message
+                : ((err as { message?: string })?.message ??
+                    'Unable to refresh. Check your connection and retry.'),
+            );
+          },
+          settled: () => {
+            if (identity.current === profileId) setLoading(false);
+          },
+        },
+      ),
+    [backend, profileId, role],
+  );
+  // A deliberate refresh after a mutation must start after any older snapshot.
+  // Background resume/reconnect signals use the single-flight runner directly.
   const refresh = useCallback(async () => {
-    if (!supabase || !profile) return;
-    const request = ++epoch.current;
-    try {
-      const results = await Promise.all([
-        supabase.from('capsules').select('*').order('code'),
-        supabase.from('handling_profiles').select('*').order('code'),
-        supabase.from('specimens').select('*').order('created_at', { ascending: false }).limit(500),
-        supabase
-          .from('transports')
-          .select('*')
-          .order('created_at', { ascending: false })
-          .limit(500),
-        supabase.from('alerts').select('*').order('created_at', { ascending: false }).limit(1000),
-        supabase.from('audit_log').select('*').order('created_at', { ascending: false }).limit(500),
-        supabase.rpc('recent_fleet_readings'),
-        supabase.from('transports').select('*').neq('state', 'closed'),
-        supabase.from('alerts').select('*').eq('acknowledged', false),
-      ]);
-      if (request !== epoch.current) return;
-      for (const result of results) if (result.error) throw result.error;
-      const active = results[7].data as Transport[];
-      let specimens = results[2].data as Specimen[];
-      const missing = active
-        .map((t) => t.specimen_id)
-        .filter((id) => !specimens.some((s) => s.id === id));
-      if (missing.length) {
-        const additional = await supabase.from('specimens').select('*').in('id', missing);
-        if (additional.error) throw additional.error;
-        specimens = [...specimens, ...(additional.data as Specimen[])];
-      }
-      if (request !== epoch.current) return;
-      const merge = <T extends { id: string }>(first: T[], second: T[]) => [
-        ...new Map([...first, ...second].map((row) => [row.id, row])).values(),
-      ];
-      setData((previous) => ({
-        capsules: results[0].data as Capsule[],
-        profiles: results[1].data as HandlingProfile[],
-        specimens,
-        transports: merge(results[3].data as Transport[], active),
-        alerts: mergeAlerts(
-          merge(results[4].data as Alert[], results[8].data as Alert[]),
-          previous.alerts,
-        ),
-        audit: results[5].data as AuditEntry[],
-        readings: mergeReadings(results[6].data as Reading[], previous.readings),
-      }));
-      setError(null);
-    } catch (err) {
-      if (request === epoch.current)
-        setError(
-          err instanceof Error
-            ? err.message
-            : ((err as { message?: string }).message ?? 'Unable to load workspace'),
-        );
-    } finally {
-      if (request === epoch.current) setLoading(false);
-    }
-  }, [profile]);
+    if (identity.current !== profileId) return;
+    if (refreshTask.pending) await refreshTask.run();
+    if (identity.current === profileId) await refreshTask.run();
+  }, [refreshTask, profileId]);
   useEffect(() => {
-    if (!profile) {
-      epoch.current++;
+    if (identity.current !== profileId) {
+      identity.current = profileId;
+      lastSnapshotAt.current = 0;
       setData(empty);
-      setLoading(false);
-      return;
+      setLoading(Boolean(profileId));
+      setError(null);
     }
-    setLoading(true);
-    void refresh();
-  }, [profile, refresh]);
+    if (profileId) void refreshTask.run();
+    else {
+      setLoading(false);
+      setRealtime('Disconnected');
+    }
+    return () => refreshTask.cancel();
+  }, [profileId, refreshTask]);
   useEffect(() => {
-    if (!supabase || !user || !profile) return;
-    const schedule = () => {
-      clearTimeout(refreshTimer.current);
-      refreshTimer.current = setTimeout(() => void refresh(), 700);
+    if (!backend || !user?.id || !profileId) return;
+    let live = true;
+    let resumeAt = 0;
+    let refreshTimer: ReturnType<typeof setTimeout> | undefined;
+    let readingsTimer: ReturnType<typeof setTimeout> | undefined;
+    const pendingReadings: Reading[] = [];
+    const flushReadings = () => {
+      clearTimeout(readingsTimer);
+      readingsTimer = undefined;
+      if (!live || document.visibilityState === 'hidden' || !pendingReadings.length) return;
+      const rows = pendingReadings.splice(0);
+      setData((previous) => ({ ...previous, readings: mergeReadings(previous.readings, rows) }));
     };
-    let channel = supabase
+    const resume = () => {
+      if (!live || document.visibilityState === 'hidden') return;
+      flushReadings();
+      if (Date.now() - resumeAt < 1000) return;
+      resumeAt = Date.now();
+      if (Date.now() - lastSnapshotAt.current < 15_000) return;
+      void refreshTask.run();
+    };
+    const reconnect = () => {
+      if (live && document.visibilityState !== 'hidden') void refreshTask.run();
+    };
+    const schedule = () => {
+      clearTimeout(refreshTimer);
+      refreshTimer = setTimeout(reconnect, 250);
+    };
+    let channel = backend
       .channel(`workspace-${user.id}`)
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'readings' },
         (payload) => {
-          const row = payload.new as Reading;
-          setData((prev) => ({
-            ...prev,
-            readings: mergeReadings(prev.readings, [row]),
-          }));
+          if (!live) return;
+          pendingReadings.push(payload.new as Reading);
+          if (pendingReadings.length > 2048)
+            pendingReadings.splice(0, pendingReadings.length - 2048);
+          if (document.visibilityState !== 'hidden' && readingsTimer === undefined)
+            readingsTimer = setTimeout(flushReadings, 40);
         },
       );
     const tables = {
@@ -159,6 +238,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         'postgres_changes',
         { event: '*', schema: 'public', table },
         (payload) => {
+          if (!live) return;
           if (table === 'alerts' && payload.eventType === 'INSERT') {
             const alert = payload.new as Alert;
             if (!alert.acknowledged) {
@@ -184,7 +264,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
                 ? rows.filter((r) => r.id !== old.id)
                 : key === 'alerts'
                   ? mergeAlerts([row as Alert], previous.alerts)
-                  : [row, ...rows.filter((r) => r.id !== row.id)];
+                  : [
+                      { ...rows.find((r) => r.id === row.id), ...row },
+                      ...rows.filter((r) => r.id !== row.id),
+                    ];
             return {
               ...previous,
               [key]: updated.slice(0, key === 'audit' ? 500 : key === 'alerts' ? 1000 : 500),
@@ -193,6 +276,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         },
       );
     channel.subscribe((status) => {
+      if (!live) return;
       setRealtime(
         status === 'SUBSCRIBED'
           ? 'Connected'
@@ -204,23 +288,30 @@ export function DataProvider({ children }: { children: ReactNode }) {
       );
       if (status === 'SUBSCRIBED') schedule();
     });
-    const poll = setInterval(() => void refresh(), 60000);
-    const focus = () => void refresh();
-    window.addEventListener('focus', focus);
+    const poll = setInterval(() => {
+      if (document.visibilityState !== 'hidden') void refreshTask.run();
+    }, 60000);
+    window.addEventListener('focus', resume);
+    window.addEventListener('online', reconnect);
+    document.addEventListener('visibilitychange', resume);
     return () => {
+      live = false;
       clearInterval(poll);
-      clearTimeout(refreshTimer.current);
-      epoch.current++;
-      window.removeEventListener('focus', focus);
-      void supabase!.removeChannel(channel);
+      clearTimeout(refreshTimer);
+      clearTimeout(readingsTimer);
+      window.removeEventListener('focus', resume);
+      window.removeEventListener('online', reconnect);
+      document.removeEventListener('visibilitychange', resume);
+      void backend.removeChannel(channel);
     };
-  }, [user, profile, refresh]);
-  return (
-    <DataContext.Provider value={{ ...data, loading, error, realtime, refresh }}>
-      {children}
-    </DataContext.Provider>
+  }, [backend, user?.id, profileId, role, refreshTask]);
+  const value = useMemo(
+    () => ({ ...data, loading, error, realtime, refresh }),
+    [data, loading, error, realtime, refresh],
   );
+  return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
 }
+
 export function useData() {
   const value = useContext(DataContext);
   if (!value) throw new Error('DataProvider missing');
@@ -235,50 +326,59 @@ export function useCapsule(id: string | undefined) {
     if (!client || !id || !staff) return;
     let stopped = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
-    let request: AbortController | undefined;
     setPolledReadings([]);
+    const request = createRequestRunner(
+      async (signal) => {
+        const { data: row, error } = await client
+          .from('readings')
+          .select('*')
+          .eq('capsule_id', id)
+          .order('recorded_at', { ascending: false })
+          .limit(1)
+          .abortSignal(signal)
+          .maybeSingle();
+        if (error) throw error;
+        return row as Reading | null;
+      },
+      {
+        success: (reading) => {
+          if (stopped || !reading) return;
+          setPolledReadings((previous) =>
+            previous.some((r) => r.id === reading.id)
+              ? previous
+              : mergeReadings(previous, [reading]),
+          );
+        },
+        failure: () => {}, // Existing data stays visible until its freshness deadline.
+      },
+      5000,
+    );
     async function tick() {
-      try {
-        // Realtime still pushes immediately. This narrow query reconciles the
-        // visible capsule without reloading the page or the whole workspace.
-        if (document.visibilityState !== 'hidden') {
-          request = new AbortController();
-          const timeout = setTimeout(() => request?.abort(), 5000);
-          try {
-            const { data: row, error } = await client!
-              .from('readings')
-              .select('*')
-              .eq('capsule_id', id!)
-              .order('recorded_at', { ascending: false })
-              .limit(1)
-              .abortSignal(request.signal)
-              .maybeSingle();
-            if (!stopped && !error && row) {
-              const reading = row as Reading;
-              setPolledReadings((previous) =>
-                previous.some((r) => r.id === reading.id)
-                  ? previous
-                  : [...previous, reading]
-                      .sort((a, b) => Date.parse(a.recorded_at) - Date.parse(b.recorded_at))
-                      .slice(-180),
-              );
-            }
-          } finally {
-            clearTimeout(timeout);
-          }
-        }
-      } catch {
-        // Keep the last reading and let Realtime/reconciliation recover.
-      } finally {
-        // Schedule after completion so slow requests never pile up.
-        if (!stopped) timer = setTimeout(tick, 500);
+      clearTimeout(timer);
+      if (stopped || !visible()) return;
+      await request.run();
+      if (!stopped && visible()) {
+        clearTimeout(timer);
+        timer = setTimeout(tick, 500);
       }
     }
+    function visible() {
+      return document.visibilityState !== 'hidden';
+    }
+    const resume = () => {
+      clearTimeout(timer);
+      if (document.visibilityState === 'hidden') request.cancel();
+      else void tick();
+    };
+    document.addEventListener('visibilitychange', resume);
+    window.addEventListener('online', resume);
     void tick();
     return () => {
       stopped = true;
       clearTimeout(timer);
-      request?.abort();
+      request.cancel();
+      document.removeEventListener('visibilitychange', resume);
+      window.removeEventListener('online', resume);
     };
   }, [id, staff?.id]);
   const capsule = data.capsules.find((c) => c.id === id);

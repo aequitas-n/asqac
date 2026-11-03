@@ -1,7 +1,7 @@
 import { lazy, Suspense } from 'react';
 import { BrowserRouter, Navigate, Outlet, Route, Routes, Link } from 'react-router-dom';
 import { MotionConfig } from 'framer-motion';
-import { Toaster } from 'sonner';
+import { Toaster, toast } from 'sonner';
 import { AuthProvider, useAuth } from './hooks/useAuth';
 import { DataProvider } from './hooks/useData';
 import { Brand, Empty, Skeleton } from './components/ui';
@@ -17,7 +17,7 @@ const Hardware = lazy(() => import('./pages/Hardware'));
 const Setup = lazy(() => import('./pages/Setup'));
 const TransportReport = lazy(() => import('./pages/TransportReport'));
 function RequireAuth() {
-  const { user, profile, preview, loading, error, signOut } = useAuth();
+  const { user, profile, preview, loading, error, signOut, retryProfile } = useAuth();
   if (loading)
     return (
       <div className="boot-screen">
@@ -29,12 +29,20 @@ function RequireAuth() {
   if (user && !profile)
     return (
       <Empty
-        title="Staff profile required"
+        title="Restore staff access"
         description={error ?? 'Ask your administrator to provision this account.'}
         action={
-          <button className="button secondary" onClick={() => void signOut()}>
-            Sign out
-          </button>
+          <div className="button-row">
+            <button className="button primary" onClick={retryProfile}>
+              Retry connection
+            </button>
+            <button
+              className="button secondary"
+              onClick={() => void signOut().catch((err) => toast.error(err.message))}
+            >
+              Sign out
+            </button>
+          </div>
         }
       />
     );
